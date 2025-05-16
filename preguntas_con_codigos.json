@@ -1,0 +1,255 @@
+{
+  "Generales": [
+    {
+      "tipo": "text",
+      "label": "Edad",
+      "codigo": "Edad",
+      "opciones": []
+    },
+    {
+      "tipo": "select",
+      "label": "Sexo",
+      "codigo": "SEXO",
+      "opciones": ["Masculino", "Femenino"],
+      "valores": [1, 2]
+    },
+    {
+      "tipo": "text",
+      "label": "Peso (kg)",
+      "codigo": "PESO1_1",
+      "opciones": []
+    },
+    {
+      "tipo": "text",
+      "label": "Estatura (cm)",
+      "codigo": "TALLA4_1",
+      "opciones": []
+    },
+    {
+      "tipo": "text",
+      "label": "Tensión Arterial (Sístole)",
+      "codigo": "P27_1_1",
+      "opciones": []
+    },
+    {
+      "tipo": "text",
+      "label": "Tensión Arterial (Diástole)",
+      "codigo": "P27_1_2",
+      "opciones": []
+    }
+  ],
+  "Salud": [
+    {
+      "tipo": "select",
+      "label": "¿Alguna vez le ha dicho un médico/dietista/nutriólogo que tiene o tuvo obesidad?",
+      "codigo": "P1_1",
+      "opciones": ["Sí", "No"],
+      "valores": [1, 2]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Considera que su peso actual es...",
+      "codigo": "P1_6",
+      "opciones": ["Mayor al saludable", "Saludable", "menor al saludable", "No responde", "No sabe"],
+      "valores": [1, 2, 3, 8, 9]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Algún médico le ha dicho que tiene la presión alta?",
+      "codigo": "P4_1",
+      "opciones": ["Sí", "No"],
+      "valores": [1, 2]
+    },
+    {
+      "tipo": "select",
+      "label": "Durante los últimos 12 meses, ¿ha perdido o ganado peso?",
+      "codigo": "P1_7",
+      "opciones": ["Ganó peso", "Perdió peso", "No ha experimentado cambios en su peso", "Ganó o perdió peso porque está embarazada", "No sabe"],
+      "valores": [1, 2, 3, 4, 9]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Ha tenido alguna vez un dolor fuerte en el pecho, sudoración, con falta de aire o gran malestar  que durara media hora o más?",
+      "codigo": "P5_1",
+      "opciones": ["Sí", "No"],
+      "valores": [1, 2]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Le ha dicho el médico que usted tiene (o tuvo) un infarto o ataque al corazón?",
+      "codigo": "P5_2_1",
+      "opciones": ["Sí", "No"],
+      "valores": [1, 2]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Alguna vez un médico le ha dicho que padece de alguna enfermedad del riñón, como infección de vías urinarias en más de una ocasión?",
+      "codigo": "P6_1_1",
+      "opciones": ["Sí", "No"],
+      "valores": [1, 2]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Algún médico le ha dicho que tiene los triglicéridos altos?",
+      "codigo": "P6_6",
+      "opciones": ["Sí", "No"],
+      "valores": [1, 2]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Algún médico le ha dicho que tiene el colesterol alto?",
+      "codigo": "P6_4",
+      "opciones": ["Sí", "No"],
+      "valores": [1, 2]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Ha fumado usted por lo menos 100 cigarrillos  (5 cajetillas) de tabaco durante toda su vida?",
+      "codigo": "P13_1",
+      "opciones": ["Sí", "No", "No sabe"],
+      "valores": [1, 2, 9]
+    },
+    {
+      "tipo": "select",
+      "label": "Actualmente ¿fuma tabaco...",
+      "codigo": "P13_2",
+      "opciones": ["todos los días", "algunos días", "no fuma actualmente", "No responde"],
+      "valores": [1, 2, 3, 9]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Alguna vez, aunque haya sido una vez, usó un cigarro electrónico?",
+      "codigo": "P13_10",
+      "opciones": ["Sí", "No", "No responde"],
+      "valores": [1, 2, 8]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Actualmente toma?",
+      "codigo": "P13_11",
+      "opciones": ["Sí", "No", "Nunca ha tomado"],
+      "valores": [1, 2, 3]
+    },
+    {
+      "tipo": "select",
+      "label": "Aproximadamente, ¿con qué frecuencia toma?",
+      "codigo": "P13_12_1",
+      "opciones": ["Diario", "Semanal", "Mensual", "Ocasional", "No responde"],
+      "valores": [1, 2, 3, 4, 8]
+    }
+  ],
+  "Antecedentes familiares": {
+    "Padre": [
+      {
+        "tipo": "select",
+        "label": "¿Su padre tiene o tuvo diabetes o azúcar alta en la sangre?",
+        "codigo": "P7_1_1",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      },
+      {
+        "tipo": "select",
+        "label": "¿Su padre tiene o tuvo hipertensión o presión alta?",
+        "codigo": "P7_2_1",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      },
+      {
+        "tipo": "select",
+        "label": "¿Su padre tuvo un infarto?",
+        "codigo": "P7_3_1",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      },
+      {
+        "tipo": "select",
+        "label": "¿Su padre tuvo valores altos de colesterol y/o triglicéridos?",
+        "codigo": "P7_5_1",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      }
+    ],
+    "Madre": [
+      {
+        "tipo": "select",
+        "label": "¿Su madre tiene o tuvo diabetes o azúcar alta en la sangre?",
+        "codigo": "P7_1_2",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      },
+      {
+        "tipo": "select",
+        "label": "¿Su madre tiene o tuvo hipertensión o presión alta?",
+        "codigo": "P7_2_2",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      },
+      {
+        "tipo": "select",
+        "label": "¿Su madre tuvo un infarto?",
+        "codigo": "P7_3_2",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      },
+      {
+        "tipo": "select",
+        "label": "¿Su madre tuvo valores altos de colesterol y/o triglicéridos?",
+        "codigo": "P7_5_2",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      }
+    ],
+    "Hermano": [
+      {
+        "tipo": "select",
+        "label": "¿Su hermano(a) tiene o tuvo diabetes o azúcar alta en la sangre?",
+        "codigo": "P7_1_3",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      },
+      {
+        "tipo": "select",
+        "label": "¿Su hermano(a) tiene o tuvo hipertensión o presión alta?",
+        "codigo": "P7_2_3",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      },
+      {
+        "tipo": "select",
+        "label": "¿Su hermano(a) tuvo un infarto?",
+        "codigo": "P7_3_3",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      },
+      {
+        "tipo": "select",
+        "label": "¿Su hermano(a) tuvo valores altos de colesterol y/o triglicéridos?",
+        "codigo": "P7_5_3",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+      }
+    ]
+  },"Hábitos Alimenticios":[
+    {
+      "tipo": "select",
+      "label": "¿Consume comida rápida y antojitos mexicanos 3 veces o más a la semana?",
+      "codigo": "COMIDA_RAP",
+      "opciones": ["No", "Sí"],
+      "valores": [0, 1]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Consume dulces, botanas y postres 3 veces o más a la semana?",
+      "codigo": "DULCES",
+      "opciones": ["No", "Sí"],
+      "valores": [0, 1]
+    },
+    {
+      "tipo": "select",
+      "label": "¿Consume cereales dulces 3 veces o más a la semana?",
+      "codigo": "CEREALES_DUL",
+      "opciones": ["No", "Sí"],
+      "valores": [0, 1]
+    }
+  ]
+}

@@ -1,0 +1,118 @@
+/* Fondo para la app */
+.stApp {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Inputs personalizados */
+input {
+    background-color: rgba(255, 255, 255, 0.6);
+    border: 1px solid black;
+    padding: 10px;
+    font-size: 16px;
+    width: 100%;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    backdrop-filter: blur(5px);
+}
+
+/* Placeholders */
+input::placeholder {
+    color: rgba(0, 0, 0, 0.6);
+}
+
+/* Botón de login */
+button[kind="primary"] {
+    background-color: white;
+    color: black;
+    border-radius: 10px;
+    border: 1px solid black;
+    padding: 10px 20px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+button[kind="primary"]:hover {
+    background-color: black;
+    color: white;
+}
+
+/* Estilo personalizado para los mensajes de error */
+div.stAlert[data-baseweb="alert"] {
+    background-color: rgba(255, 0, 0, 0.85);  /* rojo sólido */
+    color: white;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+/* Estilo para mensajes de éxito */
+div.stAlert[data-baseweb="alert"][role="alert"] div[style*="green"] {
+    background-color: rgba(0, 128, 0, 0.85);  /* verde sólido */
+    color: white;
+}
+
+/* Aumenta tamaño de texto de etiquetas y entradas */
+label, .stTextInput label, .stPasswordInput label {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* Aumenta el tamaño de los radio buttons */
+.stRadio > div {
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+/* Mejora el espaciado general del formulario */
+form {
+    padding-top: 10px;
+}
+
+.stTextInput > div > input,
+.stPasswordInput > div > input {
+    font-size: 1rem;
+    padding: 10px;
+}
+
+/* Estiliza el título "Selecciona una opción" */
+div[data-baseweb="radio"] > div:first-child {
+    font-size: 1.2rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 10px;
+}
+
+/* Estiliza campos de texto y contraseña */
+.stTextInput label, .stPasswordInput label {
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    color: #111 !important;
+}
+
+/* También asegúrate de dar estilo a input directamente */
+.stTextInput input, .stPasswordInput input {
+    font-size: 1rem !important;
+    padding: 10px !important;
+}
+
+/* Fuerza estilo para el título del radio */
+div[data-baseweb="radio"] > div:first-child {
+    font-size: 20px !important;
+    font-weight: bold !important;
+    color: black !important;
+    margin-bottom: 12px;
+}
+
+/* Fuerza estilo para campos de texto y contraseña */
+input[type="text"], input[type="password"] {
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    padding: 10px !important;
+}
+
+/* Estilo para las etiquetas internas de los inputs */
+label {
+    font-size: 17px !important;
+    font-weight: bold !important;
+    color: #111 !important;
+}
