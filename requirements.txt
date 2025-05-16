@@ -1,7 +1,9 @@
 streamlit
-gspread
-oauth2client
 pandas
 joblib
-fpdf
-streamlit-javascript
+gspread
+oauth2client
+scikit-learn
+matplotlib
+seaborn
+requests
