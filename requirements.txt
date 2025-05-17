@@ -11,3 +11,4 @@ fpdf
 streamlit-javascript
 streamlit_geolocation
 folium
+streamlit_folium
