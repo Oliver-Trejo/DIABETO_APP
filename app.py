@@ -275,7 +275,7 @@ def mostrar_pacientes():
         if location and location.get("latitude") and location.get("longitude"):
             lat = location["latitude"]
             lon = location["longitude"]
-            st.success(f"✅ Coordenadas obtenidas:\nLatitud: {lat}\nLongitud: {lon}")
+            #st.success(f"✅ Coordenadas obtenidas:\nLatitud: {lat}\nLongitud: {lon}")
 
             # Mostrar mapa con marcador
             mapa = folium.Map(location=[lat, lon], zoom_start=16)
