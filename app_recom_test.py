@@ -310,25 +310,25 @@ def mostrar_pacientes():
         if pred == 1:
             col1, col2, col3 = st.columns(3)
             with col1:
-                with open("documentos/nutricion_diabeticos.pdf", "rb") as f:
-                    st.download_button("🍽️ Nutrición", f, file_name="nutricion_diabeticos.pdf")
+                with open("documentos/nutricion_diabeticos.txt", "rb") as f:
+                    st.download_button("🍽️ Nutrición", f, file_name="nutricion_diabeticos.txt")
             with col2:
-                with open("documentos/ejercicio_diabeticos.pdf", "rb") as f:
-                    st.download_button("🏃‍♀️ Ejercicio", f, file_name="ejercicio_diabeticos.pdf")
+                with open("documentos/ejercicio_diabeticos.txt", "rb") as f:
+                    st.download_button("🏃‍♀️ Ejercicio", f, file_name="ejercicio_diabeticos.txt")
             with col3:
-                with open("documentos/habitos_diabeticos.pdf", "rb") as f:
-                    st.download_button("🌱 Hábitos", f, file_name="habitos_diabeticos.pdf")
+                with open("documentos/habitos_diabeticos.txt", "rb") as f:
+                    st.download_button("🌱 Hábitos", f, file_name="habitos_diabeticos.txt")
         else:
             col1, col2, col3 = st.columns(3)
             with col1:
-                with open("documentos/nutricion_sanos.pdf", "rb") as f:
-                    st.download_button("🍽️ Nutrición", f, file_name="nutricion_sanos.pdf")
+                with open("documentos/nutricion_sanos.txt", "rb") as f:
+                    st.download_button("🍽️ Nutrición", f, file_name="nutricion_sanos.txt")
             with col2:
-                with open("documentos/ejercicio_sanos.pdf", "rb") as f:
-                    st.download_button("🏃‍♀️ Ejercicio", f, file_name="ejercicio_sanos.pdf")
+                with open("documentos/ejercicio_sanos.txt", "rb") as f:
+                    st.download_button("🏃‍♀️ Ejercicio", f, file_name="ejercicio_sanos.txt")
             with col3:
-                with open("documentos/habitos_sanos.pdf", "rb") as f:
-                    st.download_button("🌱 Hábitos", f, file_name="habitos_sanos.pdf")
+                with open("documentos/habitos_sanos.txt", "rb") as f:
+                    st.download_button("🌱 Hábitos", f, file_name="habitos_sanos.txt")
 
                 # Botón para eliminar registro
                 if st.button("🗑️ Eliminar este registro"):
