@@ -1,6 +1,5 @@
 # ✅ ARCHIVO: interfaz.py (versión optimizada)
 import streamlit as st
-import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
 import pandas as pd
@@ -8,8 +7,11 @@ import joblib
 import hashlib
 import uuid
 from fpdf import FPDF
-from io import BytesIO
+from io import BytesIO  
 from streamlit_javascript import st_javascript
+from streamlit_geolocation import streamlit_geolocation
+import folium
+from streamlit_folium import folium_static
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
@@ -199,7 +201,6 @@ def mostrar_perfil():
     st.markdown("</div>", unsafe_allow_html=True)
 
 def mostrar_pacientes():
-
     st.title("📋 Participante")
 
     # ✅ Cargar pacientes
@@ -268,6 +269,20 @@ def mostrar_pacientes():
                 variables_etiquetadas.append((nombre, val))
 
             mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
+
+        # 🌍 Mostrar ubicación debajo de la predicción
+        with st.expander("🌍 Mostrar mi ubicación en el mapa (opcional)"):
+            location = streamlit_geolocation()
+            if location and location.get("latitude") and location.get("longitude"):
+                lat = location["latitude"]
+                lon = location["longitude"]
+                st.success(f"✅ Coordenadas: Latitud {lat}, Longitud {lon}")
+
+                mapa = folium.Map(location=[lat, lon], zoom_start=16)
+                folium.Marker([lat, lon], tooltip="📍 Aquí estás").add_to(mapa)
+                folium_static(mapa)
+            else:
+                st.warning("Presiona el botón para obtener tu ubicación.")
 
         # Mostrar respuestas completas
         respuestas_mostradas = []
