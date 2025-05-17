@@ -310,24 +310,24 @@ def mostrar_pacientes():
         if pred == 1:
             col1, col2, col3 = st.columns(3)
             with col1:
-                with open("documentos/nutricion_diabeticos.txt", "rb") as f:
+                with open("nutricion_diabeticos.txt", "rb") as f:
                     st.download_button("🍽️ Nutrición", f, file_name="nutricion_diabeticos.txt")
             with col2:
-                with open("documentos/ejercicio_diabeticos.txt", "rb") as f:
+                with open("ejercicio_diabeticos.txt", "rb") as f:
                     st.download_button("🏃‍♀️ Ejercicio", f, file_name="ejercicio_diabeticos.txt")
             with col3:
-                with open("documentos/habitos_diabeticos.txt", "rb") as f:
+                with open("habitos_diabeticos.txt", "rb") as f:
                     st.download_button("🌱 Hábitos", f, file_name="habitos_diabeticos.txt")
         else:
             col1, col2, col3 = st.columns(3)
             with col1:
-                with open("documentos/nutricion_sanos.txt", "rb") as f:
+                with open("nutricion_sanos.txt", "rb") as f:
                     st.download_button("🍽️ Nutrición", f, file_name="nutricion_sanos.txt")
             with col2:
-                with open("documentos/ejercicio_sanos.txt", "rb") as f:
+                with open("ejercicio_sanos.txt", "rb") as f:
                     st.download_button("🏃‍♀️ Ejercicio", f, file_name="ejercicio_sanos.txt")
             with col3:
-                with open("documentos/habitos_sanos.txt", "rb") as f:
+                with open("habitos_sanos.txt", "rb") as f:
                     st.download_button("🌱 Hábitos", f, file_name="habitos_sanos.txt")
 
                 # Botón para eliminar registro
