@@ -271,6 +271,7 @@ def mostrar_pacientes():
             mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
 
         # 🌍 Mostrar ubicación con botón
+        st.markdown("📍 Presiona el botón de geolocalización para mostrar el mapa")
         location = streamlit_geolocation()
         if location and location.get("latitude") and location.get("longitude"):
             lat = location["latitude"]
