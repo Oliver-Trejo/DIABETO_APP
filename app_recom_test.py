@@ -206,12 +206,23 @@ def mostrar_perfil():
     try:
         with open("intro_text.json", encoding="utf-8") as f:
             textos = json.load(f)
-            texto_html = f"<div class='texto-introductorio'>{textos.get('mi_cuenta', '')}</div>"
-            st.markdown(texto_html, unsafe_allow_html=True)
+            texto_crudo = textos.get("mi_cuenta", "")
+
+            # Reemplazo simple de Markdown por HTML
+            texto_html = (
+                texto_crudo.replace("**", "<b>")
+                           .replace("*", "<i>")
+                           .replace("<b><i>", "<b><i>")
+                           .replace("</i></b>", "</i></b>")
+            )
+
+            # Mostrar con estilo
+            st.markdown(f"<div class='texto-introductorio'>{texto_html}</div>", unsafe_allow_html=True)
     except FileNotFoundError:
         st.warning("No se encontró el archivo de texto introductorio.")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 def mostrar_pacientes():
     st.title("📋 Participante")
