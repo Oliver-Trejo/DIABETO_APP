@@ -271,18 +271,18 @@ def mostrar_pacientes():
             mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
 
         # 🌍 Mostrar ubicación con botón
-        with st.expander("🌍 Mostrar mi ubicación en el mapa (opcional)"):
-            if st.button("📍 Obtener mi ubicación"):
-                location = streamlit_geolocation()
-                if location and location.get("latitude") and location.get("longitude"):
-                    lat = location["latitude"]
-                    lon = location["longitude"]
-                    st.success(f"✅ Coordenadas: Latitud {lat}, Longitud {lon}")
-                    mapa = folium.Map(location=[lat, lon], zoom_start=16)
-                    folium.Marker([lat, lon], tooltip="📍 Aquí estás").add_to(mapa)
-                    folium_static(mapa)
-                else:
-                    st.warning("⚠ No se pudo obtener tu ubicación. Asegúrate de permitir el acceso.")
+        location = streamlit_geolocation()
+        if location and location.get("latitude") and location.get("longitude"):
+            lat = location["latitude"]
+            lon = location["longitude"]
+            st.success(f"✅ Coordenadas obtenidas:\nLatitud: {lat}\nLongitud: {lon}")
+
+            # Mostrar mapa con marcador
+            mapa = folium.Map(location=[lat, lon], zoom_start=16)
+            folium.Marker([lat, lon], tooltip="📍 Aquí estás").add_to(mapa)
+            folium_static(mapa)
+        else:
+            st.warning("⚠ Presiona el botón para obtener tu ubicación.")
 
         # Mostrar respuestas completas
         respuestas_mostradas = []
