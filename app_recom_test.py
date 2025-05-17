@@ -286,6 +286,7 @@ def mostrar_pacientes():
             st.warning("⚠ Haz clic en el botón para ver en el mapa dónde estás. Así podremos ayudarte mejor.")
 
         # Mostrar respuestas completas
+        st.markdown("#### ✍🏽 Tus respuestas")
         respuestas_mostradas = []
         for campo, valor in registro.items():
             if campo in ["Registrado por", "ID Paciente"]:
