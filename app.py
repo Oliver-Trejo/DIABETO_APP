@@ -146,7 +146,7 @@ def login_page():
     set_background()
     cargar_css("style.css")
     st.markdown("""<div class='form-container'><div style='text-align:center; margin-bottom:25px;'>
-    <h1 style='color:black;'>DIABETO<br>Facilitamos la identificación oportuna de factores de riesgo en Diabetes Tipo 2</h1></div>""", unsafe_allow_html=True)
+    <h1 style='color:black;'>DIABETO<br>Queremos ayudarte a saber si tienes señales que podrían indicar riesgo de diabetes tipo 2. Es rápido y fácil.</h1></div>""", unsafe_allow_html=True)
 
     modo = st.radio("Selecciona una opción:", ["Iniciar sesión", "Crear cuenta"])
 
@@ -163,7 +163,7 @@ def login_page():
                     st.success(f"Bienvenido, {nombre}")
                     st.rerun()
                 else:
-                    st.error("Nombre o contraseña incorrectos.")
+                    st.error("No pudimos encontrar tus datos. Revisa que estén bien escritos o intenta registrarte.")
 
     elif modo == "Crear cuenta":
         with st.form("registro_form"):
@@ -171,9 +171,9 @@ def login_page():
             password = st.text_input("Contraseña", type="password", key="reg_pass")
             if st.form_submit_button("Registrar"):
                 if buscar_usuario_por_nombre(nombre):
-                    st.error("Ese nombre ya está registrado.")
+                    st.error("Este nombre ya fue usado. Prueba con uno diferente.")
                 elif not nombre or not password:
-                    st.warning("Por favor completa todos los campos.")
+                    st.warning("Te falta llenar algún dato. Revisa por favor.")
                 else:
                     registrar_usuario(nombre, password)
                     st.success("Cuenta creada correctamente. Ya puedes iniciar sesión.")
@@ -211,7 +211,7 @@ def mostrar_pacientes():
     df = df[df["Registrado por"].str.strip().str.lower() == usuario]
 
     if df.empty:
-        st.info("Aún no has registrado pacientes.")
+        st.info("Todavía no hay ningún registro guardado. Puedes crear uno en la sección de ‘Nuevo Registro’")
         return
 
     df = df.dropna(how="all").reset_index(drop=True)
@@ -271,7 +271,7 @@ def mostrar_pacientes():
             mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
 
         # 🌍 Mostrar ubicación con botón
-        st.markdown("#### 📍 Presiona el botón para mostrar el mapa")
+        st.markdown("#### 🌍 ¿Quieres ver tu ubicación en el mapa y encontrar los Centros de Salud más cercanos?🏥")
         location = streamlit_geolocation()
         if location and location.get("latitude") and location.get("longitude"):
             lat = location["latitude"]
@@ -283,7 +283,7 @@ def mostrar_pacientes():
             folium.Marker([lat, lon], tooltip="📍 Aquí estás").add_to(mapa)
             folium_static(mapa)
         else:
-            st.warning("⚠ Presiona el botón para obtener tu ubicación.")
+            st.warning("⚠ Haz clic en el botón para ver en el mapa dónde estás. Así podremos ayudarte mejor.")
 
         # Mostrar respuestas completas
         respuestas_mostradas = []
@@ -341,15 +341,15 @@ def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
 def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
     color = "#FFA500" if pred == 1 else "#4CAF50"
     emoji = "⚠️" if pred == 1 else "✅"
-    titulo = "Es necesario Realizar Chequeo Médico" if pred == 1 else "Los datos no coinciden con un Perfil de Diabetes Tipo 2"
+    titulo = "Es importante que visites un centro de salud. Tus respuestas se parecen a las de personas con diabetes tipo 2." if pred == 1 else "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
     st.markdown(f"""
         <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; border-left: 5px solid {color};'>
             <h3 style='color:{color};'>{emoji} {titulo}</h3>
-            <p style='font-weight:bold;'>Porcentaje de Semejanza a Perfil de Paciente Diabético: {proba:.2%}</p>
+            <p style='font-weight:bold;'>Tu perfil coincide con personas que tienen diabetes en un: {proba:.2%}</p>
         </div>
     """, unsafe_allow_html=True)
     if pred == 1 and variables_importantes:
-        st.markdown("#### 🔍 Variables más relevantes para esta predicción:")
+        st.markdown("#### 🔍 Las siguientes respuestas fueron importantes para este resultado:")
         for var, val in variables_importantes:
             st.markdown(f"- **{var}**: {val}")
 
