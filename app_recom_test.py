@@ -183,22 +183,36 @@ def login_page():
 
 def mostrar_perfil():
     st.title("👩🏽👨🏽 Mi Cuenta")
-    st.markdown("""<style>.perfil-container{text-align:center; margin-top:35px;}</style>""", unsafe_allow_html=True)
+    
+    # Estilo para agrandar solo el texto de introducción
+    st.markdown("""
+        <style>
+            .perfil-container {
+                text-align: center;
+                margin-top: 35px;
+            }
+            .texto-introductorio {
+                font-size: 22px;
+                line-height: 1.6;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     st.markdown("<div class='perfil-container'>", unsafe_allow_html=True)
 
-    # Mostrar el nombre guardado en sesión
     nombre_usuario = st.session_state.get("usuario", "Usuario")
     st.markdown(f"<h2>{nombre_usuario}</h2>", unsafe_allow_html=True)
 
-    # Cargar texto introductorio desde archivo JSON
     try:
         with open("intro_text.json", encoding="utf-8") as f:
             textos = json.load(f)
-            st.markdown(textos.get("mi_cuenta", ""), unsafe_allow_html=True)
+            texto_html = f"<div class='texto-introductorio'>{textos.get('mi_cuenta', '')}</div>"
+            st.markdown(texto_html, unsafe_allow_html=True)
     except FileNotFoundError:
         st.warning("No se encontró el archivo de texto introductorio.")
 
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 def mostrar_pacientes():
     st.title("📋 Participante")
