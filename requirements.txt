@@ -10,3 +10,4 @@ requests
 fpdf
 streamlit-javascript
 streamlit_geolocation
+folium
