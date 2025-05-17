@@ -213,7 +213,6 @@ def mostrar_perfil():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-
 def mostrar_pacientes():
     st.title("📋 Participante")
 
