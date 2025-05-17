@@ -9,3 +9,4 @@ seaborn
 requests
 fpdf
 streamlit-javascript
+streamlit_geolocation
