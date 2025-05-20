@@ -12,6 +12,7 @@ from streamlit_javascript import st_javascript
 from streamlit_geolocation import streamlit_geolocation
 import folium
 from streamlit_folium import folium_static
+from streamlit.components.v1 import html
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
@@ -34,6 +35,17 @@ def cargar_modelo():
     return joblib.load(RUTA_MODELO)
 
 # --- FUNCIONES AUXILIARES ---
+def leer_en_voz(texto: str):
+    if st.session_state.get("voz_activa", False):
+        html(f"""
+            <script>
+                var mensaje = new SpeechSynthesisUtterance("{texto}");
+                mensaje.lang = "es-MX";
+                mensaje.pitch = 1;
+                mensaje.rate = 0.95;
+                speechSynthesis.speak(mensaje);
+            </script>
+        """, height=0)
 
 def set_background():
     st.markdown("""
@@ -145,8 +157,19 @@ def registrar_usuario(nombre, password):
 def login_page():
     set_background()
     cargar_css("style.css")
+
     st.markdown("""<div class='form-container'><div style='text-align:center; margin-bottom:25px;'>
     <h1 style='color:black;'>DIABETO<br>Queremos ayudarte a saber si tienes señales que podrían indicar riesgo de diabetes tipo 2. Es rápido y fácil.</h1></div>""", unsafe_allow_html=True)
+
+    # Activar modo de voz si el usuario lo desea
+    if "voz_activa" not in st.session_state:
+        st.session_state["voz_activa"] = False
+
+    st.session_state["voz_activa"] = st.checkbox("🗣️ ¿Deseas activar el modo de lectura en voz alta?", value=st.session_state["voz_activa"])
+
+    # Leer mensaje inicial si la voz está activada
+    if st.session_state["voz_activa"]:
+        leer_en_voz("Bienvenido a DIABETO. Queremos ayudarte a saber si tienes señales que podrían indicar riesgo de diabetes tipo dos. Es rápido y fácil.")
 
     modo = st.radio("Selecciona una opción:", ["Iniciar sesión", "Crear cuenta"])
 
@@ -158,7 +181,7 @@ def login_page():
                 usuario = buscar_usuario_por_nombre(nombre)
                 if usuario and usuario["Contraseña Hasheada"] == hash_password(password):
                     st.session_state["logged_in"] = True
-                    st.session_state["usuario"] = nombre  # ✅ ESTA ES LA CLAVE
+                    st.session_state["usuario"] = nombre
                     st.sidebar.markdown(f"👤 Sesión activa: **{st.session_state['usuario']}**")
                     st.success(f"Bienvenido, {nombre}")
                     st.rerun()
@@ -180,6 +203,7 @@ def login_page():
                     st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 def mostrar_perfil():
     st.title("👩🏽👨🏽 Mi Cuenta")
