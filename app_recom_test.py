@@ -171,7 +171,8 @@ def login_page():
         leer_en_voz("Bienvenido a DIABETO. Queremos ayudarte a saber si tienes señales que podrían indicar riesgo de diabetes tipo dos. Es rápido y fácil.")
         leer_en_voz("Selecciona una opción. Puedes iniciar sesión si ya tienes cuenta, o crear una cuenta nueva.")
 
-    modo = st.radio("Selecciona una opción:", ["Iniciar sesión", "Crear cuenta"])
+    modo = st.radio("Selecciona una opción:", ["Selecciona una opción", "Iniciar sesión", "Crear cuenta"])
+
 
     if st.session_state["voz_activa"]:
         leer_en_voz(f"Opción seleccionada: {modo}")
