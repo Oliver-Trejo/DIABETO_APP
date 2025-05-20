@@ -467,16 +467,25 @@ def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
     color = "#FFA500" if pred == 1 else "#4CAF50"
     emoji = "⚠️" if pred == 1 else "✅"
     titulo = "Es importante que visites un centro de salud. Tus respuestas se parecen a las de personas con diabetes tipo 2." if pred == 1 else "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
+
     st.markdown(f"""
         <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; border-left: 5px solid {color};'>
             <h3 style='color:{color};'>{emoji} {titulo}</h3>
             <p style='font-weight:bold;'>Tu perfil coincide con personas que tienen diabetes en un: {proba:.2%}</p>
         </div>
     """, unsafe_allow_html=True)
+
+    if st.session_state.get("voz_activa", False):
+        leer_en_voz(titulo)
+        leer_en_voz(f"Tu perfil coincide con personas con diabetes en un {proba:.0%}")
+
     if pred == 1 and variables_importantes:
         st.markdown("#### 🔍 Las siguientes respuestas fueron importantes para este resultado:")
         for var, val in variables_importantes:
             st.markdown(f"- **{var}**: {val}")
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz(f"{var}: {val}")
+
 
 def ejecutar_prediccion():
     sheet = conectar_google_sheet(key="1C5H_AJQtMCvNdHfs55Hv8vl_LcwAI0_syK85JV1KUv0")
