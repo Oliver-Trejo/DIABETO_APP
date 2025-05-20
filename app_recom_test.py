@@ -40,11 +40,12 @@ def leer_en_voz(texto: str):
     if st.session_state.get("voz_activa", False):
         html(f"""
             <script>
+                window.speechSynthesis.cancel();  // Cancela cualquier lectura en curso
                 var mensaje = new SpeechSynthesisUtterance("{texto}");
                 mensaje.lang = "es-MX";
                 mensaje.pitch = 1;
                 mensaje.rate = 0.95;
-                speechSynthesis.speak(mensaje);
+                window.speechSynthesis.speak(mensaje);
             </script>
         """, height=0)
 
@@ -477,7 +478,7 @@ def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
 
     if st.session_state.get("voz_activa", False):
         leer_en_voz(titulo)
-        leer_en_voz(f"Tu perfil coincide con personas con diabetes en un {proba:.0%}")
+        leer_en_voz(f"{titulo} Tu perfil coincide con personas con diabetes en un {proba:.0%}") 
 
     if pred == 1 and variables_importantes:
         st.markdown("#### 🔍 Las siguientes respuestas fueron importantes para este resultado:")
