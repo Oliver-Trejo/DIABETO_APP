@@ -161,19 +161,25 @@ def login_page():
     st.markdown("""<div class='form-container'><div style='text-align:center; margin-bottom:25px;'>
     <h1 style='color:black;'>DIABETO<br>Queremos ayudarte a saber si tienes señales que podrían indicar riesgo de diabetes tipo 2. Es rápido y fácil.</h1></div>""", unsafe_allow_html=True)
 
-    # Activar modo de voz si el usuario lo desea
+    # Activar modo de voz
     if "voz_activa" not in st.session_state:
         st.session_state["voz_activa"] = False
 
     st.session_state["voz_activa"] = st.checkbox("🗣️ ¿Deseas activar el modo de lectura en voz alta?", value=st.session_state["voz_activa"])
 
-    # Leer mensaje inicial si la voz está activada
     if st.session_state["voz_activa"]:
         leer_en_voz("Bienvenido a DIABETO. Queremos ayudarte a saber si tienes señales que podrían indicar riesgo de diabetes tipo dos. Es rápido y fácil.")
+        leer_en_voz("Selecciona una opción. Puedes iniciar sesión si ya tienes cuenta, o crear una cuenta nueva.")
 
     modo = st.radio("Selecciona una opción:", ["Iniciar sesión", "Crear cuenta"])
 
+    if st.session_state["voz_activa"]:
+        leer_en_voz(f"Opción seleccionada: {modo}")
+
     if modo == "Iniciar sesión":
+        if st.session_state["voz_activa"]:
+            leer_en_voz("Por favor, escribe tu nombre completo y tu contraseña para iniciar sesión.")
+
         with st.form("login_form"):
             nombre = st.text_input("Nombre completo", key="login_nombre")
             password = st.text_input("Contraseña", type="password", key="login_pass")
@@ -184,25 +190,39 @@ def login_page():
                     st.session_state["usuario"] = nombre
                     st.sidebar.markdown(f"👤 Sesión activa: **{st.session_state['usuario']}**")
                     st.success(f"Bienvenido, {nombre}")
+                    if st.session_state["voz_activa"]:
+                        leer_en_voz(f"Bienvenido, {nombre}. Has iniciado sesión correctamente.")
                     st.rerun()
                 else:
                     st.error("No pudimos encontrar tus datos. Revisa que estén bien escritos o intenta registrarte.")
+                    if st.session_state["voz_activa"]:
+                        leer_en_voz("No pudimos encontrar tus datos. Intenta de nuevo o crea una cuenta.")
 
     elif modo == "Crear cuenta":
+        if st.session_state["voz_activa"]:
+            leer_en_voz("Por favor, escribe tu nombre completo y una contraseña para crear una cuenta nueva.")
+
         with st.form("registro_form"):
             nombre = st.text_input("Nombre completo", key="reg_nombre")
             password = st.text_input("Contraseña", type="password", key="reg_pass")
             if st.form_submit_button("Registrar"):
                 if buscar_usuario_por_nombre(nombre):
                     st.error("Este nombre ya fue usado. Prueba con uno diferente.")
+                    if st.session_state["voz_activa"]:
+                        leer_en_voz("Ese nombre ya fue usado. Prueba con uno diferente.")
                 elif not nombre or not password:
                     st.warning("Te falta llenar algún dato. Revisa por favor.")
+                    if st.session_state["voz_activa"]:
+                        leer_en_voz("Te falta llenar algún dato. Revisa por favor.")
                 else:
                     registrar_usuario(nombre, password)
                     st.success("Cuenta creada correctamente. Ya puedes iniciar sesión.")
+                    if st.session_state["voz_activa"]:
+                        leer_en_voz("Cuenta creada correctamente. Ya puedes iniciar sesión.")
                     st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 
 def mostrar_perfil():
