@@ -360,6 +360,8 @@ def mostrar_pacientes():
 
         # 🌍 Mostrar ubicación con botón
         st.markdown("#### 🌍 ¿Quieres ver tu ubicación en el mapa y encontrar los Centros de Salud más cercanos?🏥")
+        if st.session_state.get("voz_activa", False):
+                leer_en_voz("Haz clic en botón para ver tu ubicación y que se muestren los centros de salud más cercanos")
         location = streamlit_geolocation()
         if location and location.get("latitude") and location.get("longitude"):
             lat = location["latitude"]
@@ -387,6 +389,9 @@ def mostrar_pacientes():
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(f"{label}: {valor}")
 
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz("Presiona el botón azul con rojo de la parte de abajo para descargar tus respuestas")
+
         # Botón para generar PDF de respuestas
         if st.button("📥 Descargar resumen de respuestas"):
             pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
@@ -397,7 +402,7 @@ def mostrar_pacientes():
 
         if st.session_state.get("voz_activa", False):
             if pred == 1:
-                leer_en_voz("Te recomendamos mejorar tus hábitos. Puedes descargar las guías de nutrición, ejercicio y estilo de vida.")
+                leer_en_voz("Te recomendamos las siguientes guías para mejorar tus hábitos. Puedes descargar las guías de nutrición, ejercicio y estilo de vida.")
             else:
                 leer_en_voz("¡Sigue así! Te compartimos sugerencias para mantener tu buena salud.")
 
