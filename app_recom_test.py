@@ -356,7 +356,7 @@ def mostrar_pacientes():
             mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
 
             if st.session_state.get("voz_activa", False):
-                leer_en_voz("Ahora verás tus recomendaciones personalizadas.")
+                leer_en_voz("Ahora verás tus respuestas y recomendaciones personalizadas.")
 
         # 🌍 Mostrar ubicación con botón
         st.markdown("#### 🌍 ¿Quieres ver tu ubicación en el mapa y encontrar los Centros de Salud más cercanos?🏥")
@@ -555,9 +555,6 @@ def nuevo_registro():
             variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
             mostrar_resultado_prediccion(proba, pred, variables_relevantes)
             st.rerun()
-
-
-
 
 def main():
     if "logged_in" not in st.session_state:
