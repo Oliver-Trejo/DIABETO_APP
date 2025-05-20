@@ -495,6 +495,9 @@ def ejecutar_prediccion():
 def nuevo_registro():
     st.title("📝 Registro de Pacientes")
 
+    if st.session_state.get("voz_activa", False):
+        leer_en_voz("Estás en la sección de registro de pacientes. Por favor responde las siguientes preguntas.")
+
     # ✅ Cargar preguntas del formulario
     with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
         secciones = json.load(f)
@@ -510,15 +513,24 @@ def nuevo_registro():
     with st.form(key=key_form):
         for titulo, preguntas in secciones.items():
             st.subheader(titulo)
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz(f"Sección: {titulo}")
+
             if titulo == "Antecedentes familiares":
                 for familiar, grupo in preguntas.items():
                     st.markdown(f"### {familiar}")
+                    if st.session_state.get("voz_activa", False):
+                        leer_en_voz(f"{familiar}")
                     for i, p in enumerate(grupo):
                         codigo = p.get("codigo", f"{p['label']}-{i}")
+                        if st.session_state.get("voz_activa", False):
+                            leer_en_voz(p.get("label", ""))
                         respuestas[codigo] = render_pregunta(p, key=codigo)
             else:
                 for i, p in enumerate(preguntas):
                     codigo = p.get("codigo", f"{p['label']}-{i}")
+                    if st.session_state.get("voz_activa", False):
+                        leer_en_voz(p.get("label", ""))
                     respuestas[codigo] = render_pregunta(p, key=codigo)
 
         if st.form_submit_button("Guardar"):
@@ -536,11 +548,14 @@ def nuevo_registro():
             guardar_respuesta_paciente(respuestas, proba, pred)
 
             st.success("✅ Registro guardado correctamente.")
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz("Registro guardado correctamente. Mostrando resultados.")
             st.session_state["mostrar_prediccion"] = True
             modelo = cargar_modelo()
             variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
             mostrar_resultado_prediccion(proba, pred, variables_relevantes)
             st.rerun()
+
 
 
 
