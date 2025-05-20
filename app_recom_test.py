@@ -173,10 +173,6 @@ def login_page():
 
     modo = st.radio("Selecciona una opción:", ["Selecciona una opción", "Iniciar sesión", "Crear cuenta"])
 
-
-    if st.session_state["voz_activa"]:
-        leer_en_voz(f"Opción seleccionada: {modo}")
-
     if modo == "Iniciar sesión":
         if st.session_state["voz_activa"]:
             leer_en_voz("Por favor, escribe tu nombre completo y tu contraseña para iniciar sesión.")
