@@ -355,9 +355,6 @@ def mostrar_pacientes():
 
             mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
 
-            if st.session_state.get("voz_activa", False):
-                leer_en_voz("Ahora verás tus respuestas y recomendaciones personalizadas.")
-
         # 🌍 Mostrar ubicación con botón
         st.markdown("#### 🌍 ¿Quieres ver tu ubicación en el mapa y encontrar los Centros de Salud más cercanos?🏥")
         if st.session_state.get("voz_activa", False):
