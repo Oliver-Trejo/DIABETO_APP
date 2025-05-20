@@ -280,6 +280,9 @@ def mostrar_perfil():
 def mostrar_pacientes():
     st.title("📋 Participante")
 
+    if st.session_state.get("voz_activa", False):
+        leer_en_voz("Estás en la sección de participantes. Aquí puedes consultar los registros guardados.")
+
     # ✅ Cargar pacientes
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     df = pd.DataFrame(sheet.get_all_records())
@@ -289,6 +292,8 @@ def mostrar_pacientes():
 
     if df.empty:
         st.info("Todavía no hay ningún registro guardado. Puedes crear uno en la sección de ‘Nuevo Registro’")
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz("Todavía no tienes ningún registro guardado. Ve a la sección de nuevo registro para crear uno.")
         return
 
     df = df.dropna(how="all").reset_index(drop=True)
@@ -296,6 +301,9 @@ def mostrar_pacientes():
     seleccionado = st.selectbox("Selecciona un registro para ver el detalle:", ["Selecciona"] + df["ID Paciente"].tolist())
 
     if seleccionado != "Selecciona":
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz(f"Has seleccionado el {seleccionado}. Mostrando los detalles.")
+
         idx = df[df["ID Paciente"] == seleccionado].index[0]
         registro = df.iloc[idx]
 
@@ -347,15 +355,15 @@ def mostrar_pacientes():
 
             mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
 
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz("Ahora verás tus recomendaciones personalizadas.")
+
         # 🌍 Mostrar ubicación con botón
         st.markdown("#### 🌍 ¿Quieres ver tu ubicación en el mapa y encontrar los Centros de Salud más cercanos?🏥")
         location = streamlit_geolocation()
         if location and location.get("latitude") and location.get("longitude"):
             lat = location["latitude"]
             lon = location["longitude"]
-            #st.success(f"✅ Coordenadas obtenidas:\nLatitud: {lat}\nLongitud: {lon}")
-
-            # Mostrar mapa con marcador
             mapa = folium.Map(location=[lat, lon], zoom_start=16)
             folium.Marker([lat, lon], tooltip="📍 Aquí estás").add_to(mapa)
             folium_static(mapa)
@@ -376,14 +384,22 @@ def mostrar_pacientes():
                     pass
             respuestas_mostradas.append((label, valor))
             st.markdown(f"**{label}:** {valor}")
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz(f"{label}: {valor}")
 
-                # Botón para generar PDF de respuestas
+        # Botón para generar PDF de respuestas
         if st.button("📥 Descargar resumen de respuestas"):
             pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
             st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
 
         # PDF de recomendaciones personalizadas
         st.markdown("#### 📄 Recomendaciones para ti")
+
+        if st.session_state.get("voz_activa", False):
+            if pred == 1:
+                leer_en_voz("Te recomendamos mejorar tus hábitos. Puedes descargar las guías de nutrición, ejercicio y estilo de vida.")
+            else:
+                leer_en_voz("¡Sigue así! Te compartimos sugerencias para mantener tu buena salud.")
 
         if pred == 1:
             col1, col2, col3 = st.columns(3)
@@ -408,12 +424,15 @@ def mostrar_pacientes():
                 with open("habitos_sanos.txt", "rb") as f:
                     st.download_button("🌱 Hábitos", f, file_name="habitos_sanos.txt")
 
-                # Botón para eliminar registro
-                if st.button("🗑️ Eliminar este registro"):
-                    fila_real = idx + 2
-                    sheet.delete_rows(fila_real)
-                    st.success(f"✅ {seleccionado} eliminado.")
-                    st.rerun()
+        # Botón para eliminar registro
+        if st.button("🗑️ Eliminar este registro"):
+            fila_real = idx + 2
+            sheet.delete_rows(fila_real)
+            st.success(f"✅ {seleccionado} eliminado.")
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz(f"{seleccionado} eliminado.")
+            st.rerun()
+
 
 def predecir_nuevos_registros(df_input, threshold=0.18):
     modelo = cargar_modelo()
