@@ -220,8 +220,6 @@ def login_page():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-
-
 def mostrar_perfil():
     st.title("👩🏽👨🏽 Mi Cuenta")
     
@@ -241,8 +239,13 @@ def mostrar_perfil():
 
     st.markdown("<div class='perfil-container'>", unsafe_allow_html=True)
 
+    # Obtener y mostrar nombre del usuario
     nombre_usuario = st.session_state.get("usuario", "Usuario")
     st.markdown(f"<h2>{nombre_usuario}</h2>", unsafe_allow_html=True)
+
+    # 🔊 Leer nombre del usuario si el modo voz está activado
+    if st.session_state.get("voz_activa", False):
+        leer_en_voz(f"Bienvenido, {nombre_usuario}. Esta es tu cuenta.")
 
     try:
         with open("intro_text.json", encoding="utf-8") as f:
@@ -259,8 +262,15 @@ def mostrar_perfil():
 
             # Mostrar con estilo
             st.markdown(f"<div class='texto-introductorio'>{texto_html}</div>", unsafe_allow_html=True)
+
+            # 🔊 Leer también el texto introductorio si está activado
+            if st.session_state.get("voz_activa", False) and texto_crudo:
+                leer_en_voz(texto_crudo)
+
     except FileNotFoundError:
         st.warning("No se encontró el archivo de texto introductorio.")
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz("No se encontró el texto introductorio.")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
