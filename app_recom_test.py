@@ -13,6 +13,7 @@ from streamlit_geolocation import streamlit_geolocation
 import folium
 from streamlit_folium import folium_static
 from streamlit.components.v1 import html
+import re
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
@@ -265,7 +266,8 @@ def mostrar_perfil():
 
             # 🔊 Leer también el texto introductorio si está activado
             if st.session_state.get("voz_activa", False) and texto_crudo:
-                leer_en_voz(texto_crudo)
+                texto_sin_html = re.sub(r'<[^>]+>', '', texto_crudo)  # Elimina todas las etiquetas HTML
+                leer_en_voz(texto_sin_html.strip())
 
     except FileNotFoundError:
         st.warning("No se encontró el archivo de texto introductorio.")
