@@ -284,7 +284,6 @@ def mostrar_pacientes():
     if st.session_state.get("voz_activa", False):
         leer_en_voz("Estás en la sección de participantes. Aquí puedes consultar los registros guardados.")
 
-    # ✅ Cargar pacientes
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     df = pd.DataFrame(sheet.get_all_records())
 
@@ -292,7 +291,7 @@ def mostrar_pacientes():
     df = df[df["Registrado por"].str.strip().str.lower() == usuario]
 
     if df.empty:
-        st.info("Todavía no hay ningún registro guardado. Puedes crear uno en la sección de ‘Nuevo Registro’")
+        st.info("Todavía no hay ningún registro guardado. Puedes crear uno en la sección de ‘Nuevo Registro’.")
         if st.session_state.get("voz_activa", False):
             leer_en_voz("Todavía no tienes ningún registro guardado. Ve a la sección de nuevo registro para crear uno.")
         return
@@ -307,7 +306,6 @@ def mostrar_pacientes():
 
         idx = df[df["ID Paciente"] == seleccionado].index[0]
         registro = df.iloc[idx]
-
         st.subheader(f"🧾 {seleccionado}")
 
         with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
@@ -332,7 +330,6 @@ def mostrar_pacientes():
                     if "valores" in p and "opciones" in p:
                         codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
 
-        # Diagnóstico
         variables_etiquetadas = []
         if "Probabilidad Estimada" in registro and "Predicción Óptima" in registro:
             prob = float(registro["Probabilidad Estimada"])
@@ -354,23 +351,10 @@ def mostrar_pacientes():
                         pass
                 variables_etiquetadas.append((nombre, val))
 
-            mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
+            texto_diagnostico = mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz(texto_diagnostico)
 
-        # 🌍 Mostrar ubicación con botón
-        st.markdown("#### 🌍 ¿Quieres ver tu ubicación en el mapa y encontrar los Centros de Salud más cercanos?🏥")
-        if st.session_state.get("voz_activa", False):
-                leer_en_voz("Haz clic en botón para ver tu ubicación y que se muestren los centros de salud más cercanos")
-        location = streamlit_geolocation()
-        if location and location.get("latitude") and location.get("longitude"):
-            lat = location["latitude"]
-            lon = location["longitude"]
-            mapa = folium.Map(location=[lat, lon], zoom_start=16)
-            folium.Marker([lat, lon], tooltip="📍 Aquí estás").add_to(mapa)
-            folium_static(mapa)
-        else:
-            st.warning("⚠ Haz clic en el botón para ver en el mapa dónde estás. Así podremos ayudarte mejor.")
-
-        # Mostrar respuestas completas
         st.markdown("#### ✍🏽 Tus respuestas")
         respuestas_mostradas = []
         for campo, valor in registro.items():
@@ -388,53 +372,12 @@ def mostrar_pacientes():
                 leer_en_voz(f"{label}: {valor}")
 
         if st.session_state.get("voz_activa", False):
-            leer_en_voz("Presiona el botón azul con rojo de la parte de abajo para descargar tus respuestas")
+            leer_en_voz("Presiona el botón azul con rojo de la parte de abajo para descargar tus respuestas.")
 
-        # Botón para generar PDF de respuestas
         if st.button("📥 Descargar resumen de respuestas"):
             pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
             st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
 
-        # PDF de recomendaciones personalizadas
-        st.markdown("#### 📄 Recomendaciones para ti")
-
-        if st.session_state.get("voz_activa", False):
-            if pred == 1:
-                leer_en_voz("Te recomendamos las siguientes guías para mejorar tus hábitos. Puedes descargar las guías de nutrición, ejercicio y estilo de vida.")
-            else:
-                leer_en_voz("¡Sigue así! Te compartimos sugerencias para mantener tu buena salud.")
-
-        if pred == 1:
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                with open("nutricion_diabeticos.txt", "rb") as f:
-                    st.download_button("🍽️ Nutrición", f, file_name="nutricion_diabeticos.txt")
-            with col2:
-                with open("ejercicio_diabeticos.txt", "rb") as f:
-                    st.download_button("🏃‍♀️ Ejercicio", f, file_name="ejercicio_diabeticos.txt")
-            with col3:
-                with open("habitos_diabeticos.txt", "rb") as f:
-                    st.download_button("🌱 Hábitos", f, file_name="habitos_diabeticos.txt")
-        else:
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                with open("nutricion_sanos.txt", "rb") as f:
-                    st.download_button("🍽️ Nutrición", f, file_name="nutricion_sanos.txt")
-            with col2:
-                with open("ejercicio_sanos.txt", "rb") as f:
-                    st.download_button("🏃‍♀️ Ejercicio", f, file_name="ejercicio_sanos.txt")
-            with col3:
-                with open("habitos_sanos.txt", "rb") as f:
-                    st.download_button("🌱 Hábitos", f, file_name="habitos_sanos.txt")
-
-        # Botón para eliminar registro
-        if st.button("🗑️ Eliminar este registro"):
-            fila_real = idx + 2
-            sheet.delete_rows(fila_real)
-            st.success(f"✅ {seleccionado} eliminado.")
-            if st.session_state.get("voz_activa", False):
-                leer_en_voz(f"{seleccionado} eliminado.")
-            st.rerun()
 
 
 def predecir_nuevos_registros(df_input, threshold=0.18):
@@ -469,8 +412,8 @@ def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
     emoji = "⚠️" if pred == 1 else "✅"
     titulo = (
         "Es importante que visites un centro de salud. Tus respuestas se parecen a las de personas con diabetes tipo 2."
-        if pred == 1 else
-        "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
+        if pred == 1
+        else "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
     )
 
     st.markdown(f"""
@@ -480,18 +423,22 @@ def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
         </div>
     """, unsafe_allow_html=True)
 
-    texto_a_leer = f"{titulo}. Tu perfil coincide con personas con diabetes en un {proba:.0%}."
+    texto_a_leer = ""
+    if st.session_state.get("voz_activa", False):
+        texto_a_leer += f"{titulo}. "
+        texto_a_leer += f"Tu perfil coincide con personas con diabetes en un {proba:.0f} por ciento. "
 
     if pred == 1 and variables_importantes:
         st.markdown("#### 🔍 Las siguientes respuestas fueron importantes para este resultado:")
-        texto_a_leer += " Las siguientes respuestas fueron importantes para este resultado. "
+        if st.session_state.get("voz_activa", False):
+            texto_a_leer += "Las siguientes respuestas fueron importantes para este resultado. "
+
         for var, val in variables_importantes:
             st.markdown(f"- **{var}**: {val}")
-            texto_a_leer += f"{var}: {val}. "
+            if st.session_state.get("voz_activa", False):
+                texto_a_leer += f"{var}: {val}. "
 
-    # 🔊 Leer todo en una sola llamada
-    if st.session_state.get("voz_activa", False):
-        leer_en_voz(texto_a_leer)
+    return texto_a_leer
 
 
 
