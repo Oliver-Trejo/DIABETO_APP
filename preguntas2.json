@@ -1,0 +1,221 @@
+{
+    "Generales": [
+        {
+        "tipo": "select",
+        "label": "Sexo",
+        "codigo": "sexo",
+        "opciones": ["Hombre", "Mujer"],
+        "valores": [1, 2]
+        },
+        {
+        "tipo": "text",
+        "label": "Edad",
+        "codigo": "edad",
+        "opciones": []
+        },
+        {
+        "tipo": "text",
+        "label": "¿Alguna vez le ha dicho un médico dietista nutriólogo que tiene o tuvo obesidad?",
+        "codigo": "a0201",
+        "opciones": ["Si","No","No sabe"],
+        "valores": [1, 2, 9]
+        },
+        {
+        "tipo": "text",
+        "label": "Considera que su peso actual es",
+        "codigo": "a0206",
+        "opciones": ["Mayor al saludable","Saludable","Menor al saludable","Rechazo a responder","Ignora la respuesta"],
+        "valores": [1, 2, 3, 4, 5]
+        },
+        {
+        "tipo": "text",
+        "label": "¿Ha tenido alguna vez un dolor fuerte en el pecho, con falta de aire o gran malestar que durara media hora o más?",
+        "codigo": "a0601",
+        "opciones": ["Sí", "No"],
+        "valores": [1, 2]
+        },
+        {
+        "tipo": "text",
+        "label": "¿Le ha dicho el médico que usted tiene (o tuvo) un infarto?",
+        "codigo": "a0602a",
+        "opciones": ["Sí", "No"],
+        "valores": [1, 2]
+        },
+        {
+        "tipo": "select",
+        "label": "¿Le ha dicho el médico que usted tiene (o tuvo) angina de pecho?",
+        "codigo": "a0602b",
+        "opciones": ["Sí", "No"],
+        "valores": [1, 2]
+        },
+        {
+        "tipo": "select",
+        "label": "¿Le ha dicho el médico que usted tiene (o tuvo) ...insuficiencia cardiaca?",
+        "codigo": "a0602c",
+        "opciones": ["Sí", "No"],
+        "valores": [1, 2]
+        },
+        {
+        "tipo": "select",
+        "label": "¿Le ha dicho el médico que usted tiene (o tuvo) otra enfermedad del corazón?",
+        "codigo": "a0602d",
+        "opciones": ["Sí", "No"],
+        "valores": [1, 2]
+        },
+        {
+        "tipo": "select",
+        "label": "¿Alguna vez un médico le ha dicho que padece de alguna enfermedad del riñón como  infección de vías urinarias en más de una ocasión?",
+        "codigo": "a0701a",
+        "opciones": ["Sí", "No"],
+        "valores": [1, 2]
+        },
+        {
+        "tipo": "select",
+        "label": "¿Alguna vez un médico le ha dicho que padece de alguna enfermedad del riñón como  cálculos renales?",
+        "codigo": "a0701b",
+        "opciones": ["Sí", "No"],
+        "valores": [1, 2]
+        },
+        {
+        "tipo": "select",
+        "label": "¿Le han medido alguna vez la concentración de colesterol y/o triglicéridos?",
+        "codigo": "a0703",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+        },
+        {
+        "tipo": "select",
+        "label": "¿Algún médico le ha dicho que tiene el colesterol alto?",
+        "codigo": "a0704",
+        "opciones": ["Sí", "No", "No sabe"],
+        "valores": [1, 2, 9]
+        }
+    ], 
+    "Familia": {
+
+        "Padre": [
+            {
+                "tipo": "select",
+                "label": "Su padre, tiene o tuvo diabetes o azúcar alta en la sangre?",
+                "codigo": "a0801a",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9]
+            },
+            {
+                "tipo": "select",
+                "label": "Su padre, tiene o tuvo hipertensión o presión alta?",
+                "codigo": "a0803a",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9]
+            },
+            {
+                "tipo": "select",
+                "label": "Su padre, tuvo un infarto?",
+                "codigo": "a0804a",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9]
+            },
+            {
+                "tipo": "select",
+                "label": "Su padre, tuvo valores altos de colesterol y/o trigliceridos?",
+                "codigo": "a0806a",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9]
+            }
+        ],
+        "Madre": [
+            {
+                "tipo": "select",
+                "label": "Su madre, tiene o tuvo diabetes o azúcar alta en la sangre?",
+                "codigo": "a0801b",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9]
+            },
+            {
+                "tipo": "select",
+                "label": "Su madre, tiene o tuvo hipertensión o presión alta?",
+                "codigo": "a0803b",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9]
+            },
+            {
+                "tipo": "select",
+                "label": "Su madre, tuvo un infarto?",
+                "codigo": "a0804b",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9]
+            },
+            {
+                "tipo": "select",
+                "label": "Su madre, tuvo valores altos de colesterol y/o trigliceridos?",
+                "codigo": "a0806b",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9]
+            }
+        ],
+        "Hermanos": [
+            {
+                "tipo": "select",
+                "label": "¿Alguno de sus hermanos(as) tiene o tuvo diabetes?",
+                "codigo": "a0801c",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9] 
+            },
+            {
+                "tipo": "select",
+                "label": "Su hermano tiene o tuvo hipertensión o presión alta?",
+                "codigo": "a0803c",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9] 
+            },
+            {
+                "tipo": "select",
+                "label": "Su hermano tuvo un infarto?",
+                "codigo": "a0804c",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9] 
+            },
+            {
+                "tipo": "select",
+                "label": "Su hermano tuvo valores altos de colesterol y/o trigliceridos?",
+                "codigo": "a0806c",
+                "opciones": ["Sí", "No", "No sabe"],
+                "valores": [1, 2, 9] 
+            }
+        ]
+    },
+    "Hábitos":[
+        {
+            "tipo": "select",
+            "label": "¿Ha fumado usted por lo menos cien cigarrillos (5 cajetillas) de tabaco durante toda su vida?",
+            "codigo": "a1401",
+            "opciones": ["Sí", "No", "Nunca ha fumado"],
+            "valores": [1, 2, 3] 
+        },
+        {
+            "tipo": "select",
+            "label": "¿Actualmente toma?",
+            "codigo": "a1405",
+            "opciones": ["Nunca ha tomado", "Sí", "No"],
+            "valores": [0, 1, 2] 
+        },  
+        {
+            "tipo": "text",
+            "label": "Peso (kg)",
+            "codigo": "peso",
+            "opciones": []
+        },
+        {
+            "tipo": "text",
+            "label": "Talla (altura cm)",
+            "codigo": "talla",
+            "opciones": []
+        },
+        {
+            "tipo": "text",
+            "label": "Cintura (medida de centura en cm)",
+            "codigo": "cintura",
+            "opciones": []
+        }
+    ]
+}
