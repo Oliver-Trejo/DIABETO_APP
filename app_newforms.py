@@ -484,7 +484,7 @@ def nuevo_registro():
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(f"Sección: {titulo}")
 
-            if titulo == "Antecedentes familiares":
+            if titulo == "Familia":
                 for familiar, grupo in preguntas.items():
                     st.markdown(f"### {familiar}")
                     if st.session_state.get("voz_activa", False):
