@@ -10,30 +10,32 @@ from fpdf import FPDF
 from io import BytesIO  
 from streamlit_javascript import st_javascript
 from streamlit_geolocation import streamlit_geolocation
-import folium
 from streamlit_folium import folium_static
 from streamlit.components.v1 import html
 import re
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
-RUTA_PREGUNTAS = "preguntas_con_codigos.json"
+RUTA_PREGUNTAS = "preguntas2.json"
 RUTA_CREDENCIALES = "credentials.json"
-COLUMNAS_MODELO = [
-    "SEXO", "PESO1_1", "TALLA4_1", "P27_1_1", "P27_1_2", "P1_1", "P1_6", "P4_1", "P1_7",
-    "P5_1", "P5_2_1", "P6_1_1", "P6_6", "P6_4", "P13_1", "P13_2", "P13_10", "P13_11", "P13_12_1",
-    "P7_1_1", "P7_2_1", "P7_3_1", "P7_5_1", "P7_1_2", "P7_2_2", "P7_3_2", "P7_5_2",
-    "P7_1_3", "P7_2_3", "P7_3_3", "P7_5_3", "COMIDA_RAP", "DULCES", "CEREALES_DUL"
-]
+COLUMNAS_MODELO = ['sexo', 'edad', 'a0201', 'a0206', 'a0601', 'a0602a',
+    'a0602b', 'a0602c', 'a0602d', 'a0701a', 'a0701b', 'a0703', 'a0704', 
+    'a0801a', 'a0803a', 'a0804a', 'a0806a', 'a0801b', 'a0803b', 'a0804b', 
+    'a0806b', 'a0801c', 'a0803c', 'a0804c', 'a0806c', 'a1401', 'a1405',
+    'peso', 'talla', 'cintura']
 
 # Importación de modelo
-RUTA_MODELO = "modelo_rf_entrenado.pkl"
+RUTA_MODELO1 = "1_modelo.pkl"
+RUTA_MODELO2 = "2_modelo.pkl"
 
 # API PLACE MAPA
 
 @st.cache_resource
-def cargar_modelo():
-    return joblib.load(RUTA_MODELO)
+def cargar_modelo1():
+    return joblib.load(RUTA_MODELO1)
+
+def cargar_modelo2():
+    return joblib.load(RUTA_MODELO2)
 
 # --- FUNCIONES AUXILIARES ---
 def leer_en_voz(texto: str):
