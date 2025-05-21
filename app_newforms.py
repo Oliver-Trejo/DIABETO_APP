@@ -290,7 +290,7 @@ def mostrar_pacientes():
     df = pd.DataFrame(sheet.get_all_records())
 
     usuario = st.session_state.get("usuario", "").strip().lower()
-    df = df[df["Registrado por"].str.strip().str.lower() == usuario]
+    
 
     if df.empty:
         st.info("Todavía no hay ningún registro guardado. Puedes crear uno en la sección de ‘Nuevo Registro’.")
@@ -298,6 +298,8 @@ def mostrar_pacientes():
             leer_en_voz("Todavía no tienes ningún registro guardado. Ve a la sección de nuevo registro para crear uno.")
         return
 
+    df = df[df["Registrado por"].str.strip().str.lower() == usuario]
+    
     df = df.dropna(how="all").reset_index(drop=True)
     df["ID Paciente"] = ["Registro #" + str(i + 1) for i in df.index]
     seleccionado = st.selectbox("Selecciona un registro para ver el detalle:", ["Selecciona"] + df["ID Paciente"].tolist())
