@@ -336,7 +336,7 @@ def mostrar_pacientes():
         if "Probabilidad Estimada" in registro and "Predicción Óptima" in registro:
             prob = float(registro["Probabilidad Estimada"])
             pred = int(registro["Predicción Óptima"])
-            modelo = cargar_modelo()
+            modelo = cargar_modelo1()
             df_modelo = registro.to_frame().T
             df_modelo["SEXO"] = df_modelo["SEXO"].replace({"Masculino": 1, "Femenino": 0, "Otro": 2})
             X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
@@ -383,7 +383,7 @@ def mostrar_pacientes():
 
 
 def predecir_nuevos_registros(df_input, threshold=0.18):
-    modelo = cargar_modelo()
+    modelo = cargar_modelo1()
     X = df_input[COLUMNAS_MODELO].replace("", -1).astype(float)
     df_input['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
     df_input['Predicción Óptima'] = (df_input['Probabilidad Estimada'] >= threshold).astype(int)
@@ -455,7 +455,7 @@ def ejecutar_prediccion():
         st.error(f"Faltan columnas: {faltantes}")
         return
     X = df.iloc[[-1]][COLUMNAS_MODELO].replace("", -1)
-    modelo = cargar_modelo()
+    modelo = cargar_modelo1()
     proba = modelo.predict_proba(X)[0, 1]
     pred = int(proba >= 0.21)
     mostrar_resultado_prediccion(proba, pred)
@@ -519,7 +519,7 @@ def nuevo_registro():
             if st.session_state.get("voz_activa", False):
                 leer_en_voz("Registro guardado correctamente. Mostrando resultados.")
             st.session_state["mostrar_prediccion"] = True
-            modelo = cargar_modelo()
+            modelo = cargar_modelo1()
             variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
             mostrar_resultado_prediccion(proba, pred, variables_relevantes)
             st.rerun()
