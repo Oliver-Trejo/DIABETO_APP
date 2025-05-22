@@ -444,22 +444,34 @@ def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     encabezados = sheet.row_values(1)
 
-    # Asegurar que existan las claves requeridas
-    if "Probabilidad Estimada 1" in fila_dict:
-        fila_dict["Probabilidad Estimada 1"] = float(fila_dict["Probabilidad Estimada 1"])
-        fila_dict["Predicción Óptima 1"] = int(fila_dict["Predicción Óptima 1"])
-
-    # Agregar predicciones del modelo 2 si existen
-    if "Probabilidad Estimada 2" in fila_dict:
-        fila_dict["Probabilidad Estimada 2"] = float(fila_dict["Probabilidad Estimada 2"])
-        fila_dict["Predicción Óptima 2"] = int(fila_dict["Predicción Óptima 2"])
-
+    # Añadir campos principales
     fila_dict["Registrado por"] = st.session_state.get("usuario", "Desconocido")
-    fila_dict["Registrado por"] = st.session_state.get("usuario", "Desconocido")
+
+    # Añadir columnas del modelo 1 si no existen
+    if "Probabilidad Estimada 1" not in fila_dict:
+        fila_dict["Probabilidad Estimada 1"] = ""
+    if "Predicción Óptima 1" not in fila_dict:
+        fila_dict["Predicción Óptima 1"] = ""
+
+    # Añadir columnas del modelo 2 si existen
+    if "Probabilidad Estimada 2" in fila_dict or "Predicción Óptima 2" in fila_dict:
+        if "Probabilidad Estimada 2" not in encabezados:
+            sheet.update_cell(1, len(encabezados) + 1, "Probabilidad Estimada 2")
+            encabezados.append("Probabilidad Estimada 2")
+        if "Predicción Óptima 2" not in encabezados:
+            sheet.update_cell(1, len(encabezados) + 1, "Predicción Óptima 2")
+            encabezados.append("Predicción Óptima 2")
+
+    # Verificar que encabezados estén actualizados
+    for clave in fila_dict.keys():
+        if clave not in encabezados:
+            sheet.update_cell(1, len(encabezados) + 1, clave)
+            encabezados.append(clave)
 
     # Crear la nueva fila respetando el orden de encabezados
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
     sheet.append_row(nueva_fila)
+
 
 def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
     # Determinar tipo de salida según rango de probabilidad
