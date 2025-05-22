@@ -367,7 +367,7 @@ def mostrar_pacientes():
         pred = int(registro["Predicción Óptima"])
         modelo = cargar_modelo1()
         df_modelo = registro.to_frame().T
-        df_modelo["SEXO"] = df_modelo["SEXO"].replace({"Masculino": 1, "Femenino": 0, "Otro": 2})
+        df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2})
         X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
         df_modelo['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
         df_modelo['Predicción Óptima'] = (df_modelo['Probabilidad Estimada'] >= 0.18).astype(int)
