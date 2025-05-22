@@ -19,7 +19,7 @@ st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
 RUTA_PREGUNTAS = "preguntas2.json"
 RUTA_CREDENCIALES = "credentials.json"
 COLUMNAS_MODELO = ['sexo', 'edad', 'a0201', 'a0206', 'a0601', 'a0602a',
-    'a0602b', 'a0602c', 'a0602d', 'a0701a', 'a0701b', 'a0703', 'a0704', 
+    'a0602b', 'a0602c', 'a0602d', 'a0701a', 'a  701b', 'a0703', 'a0704', 
     'a0801a', 'a0803a', 'a0804a', 'a0806a', 'a0801b', 'a0803b', 'a0804b', 
     'a0806b', 'a0801c', 'a0803c', 'a0804c', 'a0806c', 'a1401', 'a1405',
     'peso', 'talla', 'cintura']
@@ -299,7 +299,7 @@ def mostrar_pacientes():
         return
 
     df = df[df["Registrado por"].str.strip().str.lower() == usuario]
-    
+
     df = df.dropna(how="all").reset_index(drop=True)
     df["ID Paciente"] = ["Registro #" + str(i + 1) for i in df.index]
     seleccionado = st.selectbox("Selecciona un registro para ver el detalle:", ["Selecciona"] + df["ID Paciente"].tolist())
@@ -381,8 +381,6 @@ def mostrar_pacientes():
         if st.button("📥 Descargar resumen de respuestas"):
             pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
             st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
-
-
 
 def predecir_nuevos_registros(df_input, threshold=0.18):
     modelo = cargar_modelo1()
