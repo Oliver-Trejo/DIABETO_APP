@@ -329,7 +329,7 @@ def mostrar_pacientes():
         codigo_a_label = {}
         codigo_a_opciones = {}
 
-        for bloque in ["Generales", "Salud", "Hábitos Alimenticios"]:
+        for bloque in ["Generales", "Familia", "Hábitos"]:
             for p in preguntas_json.get(bloque, []):
                 codigo = p.get("codigo")
                 if codigo:
