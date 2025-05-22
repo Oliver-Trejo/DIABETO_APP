@@ -494,10 +494,6 @@ def nuevo_registro():
                     respuestas[codigo] = render_pregunta(p, key=codigo)
 
         if st.form_submit_button("Guardar"):
-            # 🔹 Agregar ubicación detectada al registro
-            respuestas["latitud"] = st.session_state.get("latitud", "")
-            respuestas["longitud"] = st.session_state.get("longitud", "")
-
             # 🔹 Hacer predicción
             df_modelo = pd.DataFrame([respuestas])
             resultado = predecir_nuevos_registros(df_modelo)
