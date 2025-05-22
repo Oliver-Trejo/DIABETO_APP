@@ -437,7 +437,7 @@ def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
 
 
 def ejecutar_prediccion():
-    sheet = conectar_google_sheet(key="pacientes_key")
+    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     df = pd.DataFrame(sheet.get_all_records())
     if df.empty:
         st.warning("No hay datos suficientes para predecir.")
