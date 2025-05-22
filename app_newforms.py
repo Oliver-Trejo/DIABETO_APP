@@ -18,7 +18,7 @@ import re
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
 RUTA_PREGUNTAS = "preguntas2.json"
 COLUMNAS_MODELO = ['sexo', 'edad', 'a0201', 'a0206', 'a0601', 'a0602a',
-    'a0602b', 'a0602c', 'a0602d', 'a0701a', 'a701b', 'a0703', 'a0704', 
+    'a0602b', 'a0602c', 'a0602d', 'a0701a', 'a0701b', 'a0703', 'a0704', 
     'a0801a', 'a0803a', 'a0804a', 'a0806a', 'a0801b', 'a0803b', 'a0804b', 
     'a0806b', 'a0801c', 'a0803c', 'a0804c', 'a0806c', 'a1401', 'a1405',
     'peso', 'talla', 'cintura']
