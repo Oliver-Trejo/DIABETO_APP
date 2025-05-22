@@ -378,8 +378,6 @@ def mostrar_pacientes():
             pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
             st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
 
-
-
 def predecir_nuevos_registros(df_input, threshold=0.18):
     modelo = cargar_modelo()
     X = df_input[COLUMNAS_MODELO].replace("", -1).astype(float)
@@ -439,8 +437,6 @@ def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
                 texto_a_leer += f"{var}: {val}. "
 
     return texto_a_leer
-
-
 
 def ejecutar_prediccion():
     sheet = conectar_google_sheet(key="1C5H_AJQtMCvNdHfs55Hv8vl_LcwAI0_syK85JV1KUv0")
