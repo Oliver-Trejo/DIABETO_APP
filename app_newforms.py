@@ -333,14 +333,14 @@ def mostrar_pacientes():
 
     for bloque in ["Generales", "Familia", "Hábitos"]:
         contenido = preguntas_json.get(bloque, {})
-        if isinstance(contenido, list):  # General, Hábitos
+        if isinstance(contenido, list):
             for p in contenido:
                 codigo = p.get("codigo")
                 if codigo:
                     codigo_a_label[codigo] = p.get("label", codigo)
                     if "valores" in p and "opciones" in p:
                         codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
-        elif isinstance(contenido, dict):  # Familia
+        elif isinstance(contenido, dict):
             for grupo in contenido.values():
                 for p in grupo:
                     codigo = p.get("codigo")
@@ -360,13 +360,21 @@ def mostrar_pacientes():
     # 🔍 Determinar qué modelo se usó
     variables_etiquetadas = []
     if "Probabilidad Estimada 2" in registro and "Predicción Óptima 2" in registro:
-        prob = float(registro["Probabilidad Estimada 2"])
-        pred = int(registro["Predicción Óptima 2"])
-        modelo = cargar_modelo2()
+        try:
+            prob = float(registro["Probabilidad Estimada 2"])
+            pred = int(registro["Predicción Óptima 2"])
+            modelo = cargar_modelo2()
+        except (ValueError, TypeError):
+            st.warning("⚠️ Este registro tiene valores inválidos en la predicción 2.")
+            return
     elif "Probabilidad Estimada 1" in registro and "Predicción Óptima 1" in registro:
-        prob = float(registro["Probabilidad Estimada 1"])
-        pred = int(registro["Predicción Óptima 1"])
-        modelo = cargar_modelo1()
+        try:
+            prob = float(registro["Probabilidad Estimada 1"])
+            pred = int(registro["Predicción Óptima 1"])
+            modelo = cargar_modelo1()
+        except (ValueError, TypeError):
+            st.warning("⚠️ Este registro tiene valores inválidos en la predicción 1.")
+            return
     else:
         st.warning("No hay predicción guardada para este registro.")
         return
@@ -374,8 +382,6 @@ def mostrar_pacientes():
     df_modelo = registro.to_frame().T
     df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2})
     X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
-
-    # Recalcular si lo deseas (opcional)
     df_modelo['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
     df_modelo['Predicción Óptima'] = (df_modelo['Probabilidad Estimada'] >= 0.18).astype(int)
 
@@ -415,6 +421,7 @@ def mostrar_pacientes():
     if st.button("📥 Descargar resumen de respuestas"):
         pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
         st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
+
 
 
 
