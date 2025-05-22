@@ -14,28 +14,28 @@
         "opciones": []
         },
         {
-        "tipo": "text",
+        "tipo": "select",
         "label": "¿Alguna vez le ha dicho un médico dietista nutriólogo que tiene o tuvo obesidad?",
         "codigo": "a0201",
         "opciones": ["Si","No","No sabe"],
         "valores": [1, 2, 9]
         },
         {
-        "tipo": "text",
+        "tipo": "select",
         "label": "Considera que su peso actual es",
         "codigo": "a0206",
         "opciones": ["Mayor al saludable","Saludable","Menor al saludable","Rechazo a responder","Ignora la respuesta"],
         "valores": [1, 2, 3, 4, 5]
         },
         {
-        "tipo": "text",
+        "tipo": "select",
         "label": "¿Ha tenido alguna vez un dolor fuerte en el pecho, con falta de aire o gran malestar que durara media hora o más?",
         "codigo": "a0601",
         "opciones": ["Sí", "No"],
         "valores": [1, 2]
         },
         {
-        "tipo": "text",
+        "tipo": "select",
         "label": "¿Le ha dicho el médico que usted tiene (o tuvo) un infarto?",
         "codigo": "a0602a",
         "opciones": ["Sí", "No"],
