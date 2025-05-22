@@ -91,12 +91,23 @@ def render_pregunta(pregunta, key):
         return "" if seleccion == "Selecciona" else seleccion
 
 def obtener_variables_importantes(modelo, datos):
-    # Extraer el modelo final del pipeline
-    modelo_final = modelo.named_steps["clf"]
-    importancias = modelo_final.feature_importances_  # ✅ usar modelo_final
+    # Buscar un paso del pipeline que tenga feature_importances_
+    modelo_final = None
+    if hasattr(modelo, "named_steps"):
+        for name, step in modelo.named_steps.items():
+            if hasattr(step, "feature_importances_"):
+                modelo_final = step
+                break
+    elif hasattr(modelo, "feature_importances_"):
+        modelo_final = modelo
 
+    if modelo_final is None:
+        st.warning("⚠️ El modelo no tiene 'feature_importances_'.")
+        return []
+
+    importancias = modelo_final.feature_importances_
     top_indices = importancias.argsort()[::-1]
-    fila = datos.iloc[0].to_dict()  # Convertir a diccionario
+    fila = datos.iloc[0].to_dict()
 
     # Solo variables con valor "1"
     variables_marcadas = {col: val for col, val in fila.items() if str(val).strip() == "1"}
@@ -110,6 +121,7 @@ def obtener_variables_importantes(modelo, datos):
             break
 
     return variables_relevantes
+
 
 def generar_pdf(respuestas_completas, variables_relevantes):
     pdf = FPDF()
