@@ -91,9 +91,11 @@ def render_pregunta(pregunta, key):
         return "" if seleccion == "Selecciona" else seleccion
 
 def obtener_variables_importantes(modelo, datos):
-    importancias = modelo.feature_importances_
-    top_indices = importancias.argsort()[::-1]
+    # Extraer el modelo final del pipeline
+    modelo_final = modelo.named_steps["clf"]
+    importancias = modelo_final.feature_importances_  # ✅ usar modelo_final
 
+    top_indices = importancias.argsort()[::-1]
     fila = datos.iloc[0].to_dict()  # Convertir a diccionario
 
     # Solo variables con valor "1"
