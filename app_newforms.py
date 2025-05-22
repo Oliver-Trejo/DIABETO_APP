@@ -17,7 +17,6 @@ import re
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
 RUTA_PREGUNTAS = "preguntas2.json"
-RUTA_CREDENCIALES = "credentials.json"
 COLUMNAS_MODELO = ['sexo', 'edad', 'a0201', 'a0206', 'a0601', 'a0602a',
     'a0602b', 'a0602c', 'a0602d', 'a0701a', 'a  701b', 'a0703', 'a0704', 
     'a0801a', 'a0803a', 'a0804a', 'a0806a', 'a0801b', 'a0803b', 'a0804b', 
@@ -445,7 +444,7 @@ def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
 
 
 def ejecutar_prediccion():
-    sheet = conectar_google_sheet(key="1C5H_AJQtMCvNdHfs55Hv8vl_LcwAI0_syK85JV1KUv0")
+    sheet = conectar_google_sheet(key="usuarios_key")
     df = pd.DataFrame(sheet.get_all_records())
     if df.empty:
         st.warning("No hay datos suficientes para predecir.")
