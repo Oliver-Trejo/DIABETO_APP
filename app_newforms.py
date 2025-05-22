@@ -14,6 +14,9 @@ from streamlit_folium import folium_static
 from streamlit.components.v1 import html
 import re
 from datetime import datetime
+import time
+import gspread
+import numpy as np
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
@@ -447,143 +450,171 @@ def mostrar_pacientes():
 
 
 def guardar_respuesta_paciente(fila_dict):
-    try:
-        sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
-        encabezados = sheet.row_values(1)
+    """
+    Guarda un registro de paciente en Google Sheets con validación y manejo de errores
+    
+    Args:
+        fila_dict (dict): Diccionario con los datos del paciente a guardar
         
-        # Asegurar columnas básicas
-        campos_requeridos = [
-            "Registrado por",
-            "Probabilidad Estimada 1",
-            "Predicción Óptima 1",
-            "Probabilidad Estimada 2",
-            "Predicción Óptima 2"
-        ]
-        
-        # Verificar y añadir campos faltantes
-        nuevos_encabezados = []
-        for campo in campos_requeridos + list(fila_dict.keys()):
-            if campo not in encabezados and campo not in nuevos_encabezados:
-                nuevos_encabezados.append(campo)
-        
-        if nuevos_encabezados:
-            sheet.insert_row(nuevos_encabezados, 2)  # Añadir nuevas columnas
-        
-        # Preparar fila con todos los campos
-        fila_completa = []
-        for col in sheet.row_values(1):  # Usar encabezados actualizados
-            if col in fila_dict:
-                # Convertir valores a string y limpiar
-                valor = str(fila_dict[col]).strip()
-                # Manejar valores booleanos
-                if valor.lower() == 'true':
-                    valor = '1'
-                elif valor.lower() == 'false':
-                    valor = '0'
-                fila_completa.append(valor)
-            else:
-                fila_completa.append('')
-        
-        # Añadir fila
-        sheet.append_row(fila_completa)
-        st.toast("Datos guardados correctamente", icon="✅")
-        return True
-        
-    except Exception as e:
-        st.error(f"Error al guardar: {str(e)}")
-        if st.session_state.get("voz_activa", False):
-            leer_en_voz("Error al guardar los datos. Por favor intente nuevamente.")
-        return False
+    Returns:
+        bool: True si se guardó correctamente, False si hubo error
+    """
+    MAX_INTENTOS = 3
+    intentos = 0
+    
+    while intentos < MAX_INTENTOS:
+        try:
+            # 1. Validación y limpieza inicial
+            if not fila_dict or not isinstance(fila_dict, dict):
+                st.error("Datos de paciente inválidos")
+                return False
+                
+            # Limpieza de valores
+            fila_limpia = {
+                k: str(v).strip() if v is not None else ""
+                for k, v in fila_dict.items()
+                if v not in [None, "", " "]  # Filtrar valores vacíos
+            }
+            
+            # Campos obligatorios
+            campos_requeridos = [
+                "Registrado por",
+                "Fecha",
+                "Probabilidad Estimada 1",
+                "Predicción Óptima 1"
+            ]
+            
+            for campo in campos_requeridos:
+                if campo not in fila_limpia:
+                    st.warning(f"Falta campo requerido: {campo}")
+                    fila_limpia[campo] = "N/A"  # Valor por defecto
+
+            # 2. Conexión con Google Sheets
+            sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
+            encabezados = sheet.row_values(1)
+            
+            if not encabezados:  # Si la hoja está vacía
+                encabezados = list(fila_limpia.keys())
+                sheet.append_row(encabezados)  # Crear encabezados
+            
+            # 3. Verificar y actualizar columnas faltantes
+            nuevos_campos = [campo for campo in fila_limpia.keys() if campo not in encabezados]
+            
+            if nuevos_campos:
+                # Actualizar encabezados en lote
+                sheet.insert_row(nuevos_campos, 2)
+                encabezados.extend(nuevos_campos)
+                
+            # 4. Preparar fila en el orden correcto
+            fila_ordenada = []
+            for columna in encabezados:
+                valor = fila_limpia.get(columna, "")
+                
+                # Conversión especial para campos numéricos
+                if columna in ["Probabilidad Estimada 1", "Probabilidad Estimada 2"]:
+                    try:
+                        valor = f"{float(valor):.4f}" if valor else ""
+                    except:
+                        valor = ""
+                elif columna in ["Predicción Óptima 1", "Predicción Óptima 2"]:
+                    valor = str(int(float(valor))) if valor else ""
+                
+                fila_ordenada.append(valor)
+
+            # 5. Guardar datos
+            sheet.append_row(fila_ordenada)
+            
+            # 6. Validar que se guardó correctamente
+            ultima_fila = sheet.get_all_records()[-1]
+            if str(ultima_fila.get("Registrado por", "")) != str(fila_limpia.get("Registrado por", "")):
+                raise ValueError("Error de verificación al guardar")
+                
+            st.toast("Datos guardados correctamente", icon="✅")
+            return True
+            
+        except gspread.exceptions.APIError as e:
+            intentos += 1
+            if intentos >= MAX_INTENTOS:
+                st.error(f"Error al conectar con Google Sheets (intento {intentos}/{MAX_INTENTOS}): {str(e)}")
+                return False
+            time.sleep(2)  # Espera antes de reintentar
+            
+        except Exception as e:
+            st.error(f"Error inesperado al guardar: {str(e)}")
+            return False
+    
+    return False
 
 @st.cache_data
 def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
     """
-    Realiza predicciones usando el flujo de dos modelos con validación de datos.
-    
-    Args:
-        df_input (pd.DataFrame): DataFrame con los datos de entrada
-        threshold1 (float): Umbral para el modelo 1 (default: 0.18)
-        threshold2 (float): Umbral para el modelo 2 (default: 0.18)
-        
-    Returns:
-        pd.DataFrame: DataFrame con las predicciones añadidas
-        None: Si ocurre un error
+    Versión robusta con manejo de valores vacíos y errores
     """
     try:
-        # Validación inicial
-        if df_input.empty:
-            st.error("Error: DataFrame de entrada vacío")
+        # Validación inicial del dataframe
+        if df_input.empty or not isinstance(df_input, pd.DataFrame):
+            st.error("Datos de entrada inválidos o vacíos")
             return None
-            
-        # Crear copia para no modificar el original
+
+        # Crear copia segura
         df = df_input.copy()
         
-        # 1. Preprocesamiento seguro de datos
-        # -----------------------------------
-        # Convertir columnas numéricas
-        numeric_cols = ['edad', 'peso', 'talla', 'cintura']
+        # 1. Limpieza y conversión de datos
+        # ---------------------------------
+        # Mapeo de sexo seguro
+        if 'sexo' in df.columns:
+            df['sexo'] = df['sexo'].apply(
+                lambda x: 1 if str(x).strip().lower() in ['hombre', '1', 'h', 'masculino'] else
+                         2 if str(x).strip().lower() in ['mujer', '2', 'm', 'femenino'] else
+                         -1  # Valor por defecto para inválidos
+            )
+
+        # Columnas numéricas - manejo seguro de vacíos
+        numeric_cols = ['edad', 'peso', 'talla', 'cintura'] + [c for c in COLUMNAS_MODELO if c.startswith('a')]
         for col in numeric_cols:
             if col in df.columns:
+                # Convertir a numérico, vacíos se convierten a NaN y luego a -1
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(-1)
-        
-        # Mapeo de sexo con validación
-        if 'sexo' in df.columns:
-            df['sexo'] = df['sexo'].apply(lambda x: 1 if str(x).strip().lower() in ['hombre', '1', 'h'] else 
-                                          2 if str(x).strip().lower() in ['mujer', '2', 'm'] else -1)
-        
+
         # Asegurar todas las columnas requeridas
         for col in COLUMNAS_MODELO:
             if col not in df.columns:
-                df[col] = -1  # Valor por defecto para datos faltantes
-        
+                df[col] = -1  # Valor por defecto
+
         # 2. Predicción con Modelo 1
         # --------------------------
         modelo1 = cargar_modelo1()
-        if not hasattr(modelo1, 'predict_proba'):
-            st.error("Error: Modelo 1 no tiene método predict_proba")
-            return None
-            
         try:
             X1 = df[COLUMNAS_MODELO].astype(float)
             df["Probabilidad Estimada 1"] = modelo1.predict_proba(X1)[:, 1]
             df["Predicción Óptima 1"] = (df["Probabilidad Estimada 1"] >= threshold1).astype(int)
         except Exception as e:
-            st.error(f"Error en Modelo 1: {str(e)}")
+            st.error(f"Fallo Modelo 1: {str(e)}")
             return None
-        
+
         # 3. Predicción con Modelo 2 (solo si Modelo 1 detecta riesgo)
         # -----------------------------------------------------------
         if df["Predicción Óptima 1"].iloc[0] == 1:
             modelo2 = cargar_modelo2()
-            if not hasattr(modelo2, 'predict_proba'):
-                st.error("Error: Modelo 2 no tiene método predict_proba")
-                return df  # Retornar al menos resultados del Modelo 1
-                
             try:
                 X2 = df[COLUMNAS_MODELO].astype(float)
-                df["Probabilidad Estimada 2"] = modelo2.predict_proba(X2)[:, 1]
+                proba2 = modelo2.predict_proba(X2)[:, 1]
                 
-                # Validar probabilidades antes de convertir a predicción
-                if not (0 <= df["Probabilidad Estimada 2"].iloc[0] <= 1):
-                    raise ValueError("Probabilidad fuera de rango [0,1]")
-                    
+                # Validar probabilidades
+                if np.isnan(proba2).any():
+                    raise ValueError("Probabilidad contiene NaN")
+                
+                df["Probabilidad Estimada 2"] = proba2
                 df["Predicción Óptima 2"] = (df["Probabilidad Estimada 2"] >= threshold2).astype(int)
             except Exception as e:
-                st.error(f"Error en Modelo 2: {str(e)}")
-                # Mantener resultados del Modelo 1 incluso si falla el 2
+                st.warning(f"Fallo Modelo 2: {str(e)} - Se mantienen resultados del Modelo 1")
                 df["Probabilidad Estimada 2"] = None
                 df["Predicción Óptima 2"] = None
-        
-        # Validación final de resultados
-        required_cols = ["Probabilidad Estimada 1", "Predicción Óptima 1"]
-        if not all(col in df.columns for col in required_cols):
-            st.error("Error: Faltan columnas esenciales de predicción")
-            return None
-            
+
         return df
-        
+
     except Exception as e:
-        st.error(f"Error inesperado en predicción: {str(e)}")
+        st.error(f"Error crítico en predicción: {str(e)}")
         return None
     
 def guardar_respuesta_paciente(fila_dict):
@@ -715,109 +746,125 @@ def nuevo_registro():
     if st.session_state.get("voz_activa", False):
         leer_en_voz("Estás en la sección de registro de pacientes. Por favor responde las siguientes preguntas.")
 
-    # Cargar estructura del formulario
     try:
+        # Cargar estructura del formulario
         with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
             secciones = json.load(f)
     except FileNotFoundError:
         st.error("Error crítico: No se encontró el archivo de preguntas. Contacta al administrador.")
-        if st.session_state.get("voz_activa", False):
-            leer_en_voz("Error al cargar el formulario. Contacta al administrador.")
+        return
+    except json.JSONDecodeError:
+        st.error("Error: Archivo de preguntas mal formado")
         return
 
     # Inicializar respuestas
     respuestas = {}
-    key_form = f"formulario_registro_{st.session_state.get('usuario', str(uuid.uuid4()))}"
+    key_form = f"form_registro_{st.session_state.get('usuario', 'anon')}_{int(time.time())}"
 
     # Mostrar formulario
-    with st.form(key=key_form):
-        # Renderizar todas las preguntas
+    with st.form(key=key_form, clear_on_submit=True):
+        # Renderizar todas las preguntas organizadas
         for titulo, contenido in secciones.items():
             st.subheader(titulo)
+            
             if st.session_state.get("voz_activa", False):
-                leer_en_voz(f"Sección: {titulo}")
+                leer_en_voz(titulo)
 
             if titulo == "Familia":
                 for familiar, grupo in contenido.items():
-                    st.markdown(f"### {familiar}")
-                    if st.session_state.get("voz_activa", False):
-                        leer_en_voz(f"Antecedentes familiares de {familiar}")
-                    for p in grupo:
-                        codigo = p.get("codigo", f"{p['label']}_{uuid.uuid4().hex[:6]}")
-                        respuestas[codigo] = render_pregunta(p, key=codigo)
+                    with st.expander(f"Antecedentes familiares: {familiar}"):
+                        for p in grupo:
+                            codigo = p.get("codigo", f"{p['label']}_{uuid.uuid4().hex[:6]}")
+                            respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
             else:
                 for p in contenido:
                     codigo = p.get("codigo", f"{p['label']}_{uuid.uuid4().hex[:6]}")
-                    respuestas[codigo] = render_pregunta(p, key=codigo)
+                    respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
 
-        # Botón de envío
-        if st.form_submit_button("📋 Guardar y evaluar"):
+        # Botón de envío con validación
+        submitted = st.form_submit_button("💾 Guardar y Evaluar",
+                                         help="Guarda las respuestas y realiza la evaluación de riesgo")
+        
+        if submitted:
             with st.spinner("Analizando respuestas..."):
                 try:
-                    # Convertir a DataFrame y validar
+                    # 1. Validación básica de campos obligatorios
+                    campos_requeridos = ['edad', 'sexo', 'peso', 'talla']
+                    faltantes = [campo for campo in campos_requeridos if campo not in respuestas or not respuestas[campo]]
+                    if faltantes:
+                        raise ValueError(f"Campos obligatorios faltantes: {', '.join(faltantes)}")
+
+                    # 2. Convertir a DataFrame y limpiar datos
                     df_modelo = pd.DataFrame([respuestas])
                     
-                    # Asegurar columnas numéricas necesarias
-                    if 'edad' in df_modelo:
-                        df_modelo['edad'] = pd.to_numeric(df_modelo['edad'], errors='coerce')
-                    if 'peso' in df_modelo:
-                        df_modelo['peso'] = pd.to_numeric(df_modelo['peso'], errors='coerce')
-                    if 'talla' in df_modelo:
-                        df_modelo['talla'] = pd.to_numeric(df_modelo['talla'], errors='coerce')
-                    
-                    # Mapear sexo a valores numéricos
-                    if 'sexo' in df_modelo:
-                        df_modelo['sexo'] = df_modelo['sexo'].map({'Hombre': 1, 'Mujer': 2})
-
-                    # Realizar predicciones
+                    # 3. Realizar predicción
                     resultado = predecir_nuevos_registros(df_modelo)
                     
-                    # Determinar qué modelo se usó
-                    if "Predicción Óptima 2" in resultado.columns:
+                    if resultado is None:
+                        raise RuntimeError("No se pudo completar la evaluación")
+
+                    # 4. Determinar modelo usado y predicción
+                    if "Predicción Óptima 2" in resultado.columns and not pd.isna(resultado["Predicción Óptima 2"].iloc[0]):
                         modelo_usado = 2
                         pred = int(resultado["Predicción Óptima 2"].iloc[0])
                     else:
                         modelo_usado = 1
                         pred = int(resultado["Predicción Óptima 1"].iloc[0])
 
-                    # Obtener variables importantes
+                    # 5. Obtener variables importantes
                     modelo = cargar_modelo2() if modelo_usado == 2 else cargar_modelo1()
-                    variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
+                    variables_relevantes = obtener_variables_importantes(modelo, resultado)
+
+                    # 6. Guardar en Google Sheets
+                    registro_completo = resultado.iloc[0].to_dict()
+                    registro_completo["Registrado por"] = st.session_state.get("usuario", "Anónimo")
+                    registro_completo["Fecha"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
-                    # Guardar en Google Sheets
-                    guardar_respuesta_paciente(respuestas)
+                    if not guardar_respuesta_paciente(registro_completo):
+                        raise RuntimeError("Error al guardar en la base de datos")
+
+                    # 7. Mostrar resultados
+                    st.success("✅ Evaluación completada y guardada")
                     
-                    # Mostrar resultados
-                    st.success("✅ Evaluación completada correctamente")
+                    # Mostrar diagnóstico
                     diagnostico = mostrar_resultado_prediccion(
                         pred=pred,
                         modelo_usado=modelo_usado,
                         variables_importantes=variables_relevantes
                     )
-                    
+
                     # Generar PDF con resultados
-                    with st.expander("📄 Descargar resumen"):
-                        pdf_buffer = generar_pdf(
-                            [(p['label'], respuestas.get(p.get('codigo', ''), '')) 
-                             for seccion in secciones.values() 
-                             for p in (seccion if isinstance(seccion, list) else [])],
-                            variables_relevantes
-                        )
+                    with st.expander("📄 Descargar resumen", expanded=False):
+                        # Preparar datos para PDF
+                        datos_pdf = []
+                        for seccion in secciones.values():
+                            if isinstance(seccion, list):
+                                for p in seccion:
+                                    if 'codigo' in p and 'label' in p:
+                                        valor = respuestas.get(p['codigo'], 'No respondido')
+                                        datos_pdf.append((p['label'], str(valor)))
+                            elif isinstance(seccion, dict):
+                                for grupo in seccion.values():
+                                    for p in grupo:
+                                        if 'codigo' in p and 'label' in p:
+                                            valor = respuestas.get(p['codigo'], 'No respondido')
+                                            datos_pdf.append((p['label'], str(valor)))
+
+                        pdf_buffer = generar_pdf(datos_pdf, variables_relevantes)
+                        
                         st.download_button(
-                            label="Descargar evaluación completa",
+                            label="⬇️ Descargar Informe Completo",
                             data=pdf_buffer,
-                            file_name=f"evaluacion_diabetes_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            file_name=f"Evaluación_DIABETO_{datetime.now().strftime('%Y%m%d')}.pdf",
                             mime="application/pdf"
                         )
 
                 except ValueError as e:
-                    st.error(f"Error en los datos: {str(e)}")
-                    if st.session_state.get("voz_activa", False):
-                        leer_en_voz("Hubo un error al procesar tus respuestas. Por favor verifica los datos ingresados.")
+                    st.error(f"Datos incompletos o inválidos: {str(e)}")
                 except Exception as e:
                     st.error(f"Error inesperado: {str(e)}")
                     if st.session_state.get("voz_activa", False):
-                        leer_en_voz("Ocurrió un error inesperado. Por favor intenta nuevamente.")
+                        leer_en_voz("Ocurrió un error al procesar tus respuestas. Por favor intenta nuevamente.")
 
 
 def main():
