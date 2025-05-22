@@ -451,99 +451,70 @@ def mostrar_pacientes():
 
 def guardar_respuesta_paciente(fila_dict):
     """
-    Guarda un registro de paciente en Google Sheets con validación y manejo de errores
-    
+    Guarda un registro de paciente en Google Sheets con validación robusta.
+
     Args:
-        fila_dict (dict): Diccionario con los datos del paciente a guardar
-        
+        fila_dict (dict): Diccionario con los datos del paciente.
+
     Returns:
-        bool: True si se guardó correctamente, False si hubo error
+        bool: True si se guardó correctamente, False en caso de error.
     """
     MAX_INTENTOS = 3
     intentos = 0
-    
+
     while intentos < MAX_INTENTOS:
         try:
-            # 1. Validación y limpieza inicial
+            # Validación básica
             if not fila_dict or not isinstance(fila_dict, dict):
-                st.error("Datos de paciente inválidos")
+                st.error("❌ Los datos del paciente están vacíos o mal formateados.")
                 return False
-                
-            # Limpieza de valores
+
+            # Limpiar y normalizar valores
             fila_limpia = {
                 k: str(v).strip() if v is not None else ""
                 for k, v in fila_dict.items()
-                if v not in [None, "", " "]  # Filtrar valores vacíos
             }
-            
-            # Campos obligatorios
-            campos_requeridos = [
-                "Registrado por",
-                "Fecha",
-                "Probabilidad Estimada 1",
-                "Predicción Óptima 1"
-            ]
-            
-            for campo in campos_requeridos:
-                if campo not in fila_limpia:
-                    st.warning(f"Falta campo requerido: {campo}")
-                    fila_limpia[campo] = "N/A"  # Valor por defecto
 
-            # 2. Conexión con Google Sheets
+            # Conexión con la hoja de Google Sheets
             sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
             encabezados = sheet.row_values(1)
-            
-            if not encabezados:  # Si la hoja está vacía
-                encabezados = list(fila_limpia.keys())
-                sheet.append_row(encabezados)  # Crear encabezados
-            
-            # 3. Verificar y actualizar columnas faltantes
-            nuevos_campos = [campo for campo in fila_limpia.keys() if campo not in encabezados]
-            
-            if nuevos_campos:
-                # Actualizar encabezados en lote
-                sheet.insert_row(nuevos_campos, 2)
-                encabezados.extend(nuevos_campos)
-                
-            # 4. Preparar fila en el orden correcto
-            fila_ordenada = []
-            for columna in encabezados:
-                valor = fila_limpia.get(columna, "")
-                
-                # Conversión especial para campos numéricos
-                if columna in ["Probabilidad Estimada 1", "Probabilidad Estimada 2"]:
-                    try:
-                        valor = f"{float(valor):.4f}" if valor else ""
-                    except:
-                        valor = ""
-                elif columna in ["Predicción Óptima 1", "Predicción Óptima 2"]:
-                    valor = str(int(float(valor))) if valor else ""
-                
-                fila_ordenada.append(valor)
 
-            # 5. Guardar datos
+            # Crear encabezados si la hoja está vacía
+            if not encabezados:
+                encabezados = list(fila_limpia.keys())
+                sheet.insert_row(encabezados, 1)
+
+            # Verificar columnas nuevas que no existan aún
+            nuevas_columnas = [col for col in fila_limpia if col not in encabezados]
+            if nuevas_columnas:
+                encabezados += nuevas_columnas
+                sheet.update('A1', [encabezados])
+
+            # Ordenar la fila según los encabezados actualizados
+            fila_ordenada = [fila_limpia.get(col, "") for col in encabezados]
+
+            # Agregar fila al final
             sheet.append_row(fila_ordenada)
-            
-            # 6. Validar que se guardó correctamente
-            ultima_fila = sheet.get_all_records()[-1]
-            if str(ultima_fila.get("Registrado por", "")) != str(fila_limpia.get("Registrado por", "")):
-                raise ValueError("Error de verificación al guardar")
-                
-            st.toast("Datos guardados correctamente", icon="✅")
+
+            # Validación post-escritura
+            registros = sheet.get_all_records()
+            if not registros or registros[-1].get("Registrado por") != fila_limpia.get("Registrado por"):
+                raise ValueError("La verificación de guardado falló.")
+
+            st.toast("✅ Datos guardados correctamente.")
             return True
-            
+
         except gspread.exceptions.APIError as e:
             intentos += 1
-            if intentos >= MAX_INTENTOS:
-                st.error(f"Error al conectar con Google Sheets (intento {intentos}/{MAX_INTENTOS}): {str(e)}")
-                return False
-            time.sleep(2)  # Espera antes de reintentar
-            
+            st.warning(f"🌐 Error al conectar con Sheets (intento {intentos}): {str(e)}")
+            time.sleep(2)
+
         except Exception as e:
-            st.error(f"Error inesperado al guardar: {str(e)}")
+            st.error(f"❌ Error al guardar los datos: {str(e)}")
             return False
-    
+
     return False
+
 
 @st.cache_data
 def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
@@ -616,55 +587,6 @@ def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
     except Exception as e:
         st.error(f"Error crítico en predicción: {str(e)}")
         return None
-    
-def guardar_respuesta_paciente(fila_dict):
-    try:
-        sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
-        encabezados = sheet.row_values(1)
-        
-        # Asegurar columnas básicas
-        campos_requeridos = [
-            "Registrado por",
-            "Probabilidad Estimada 1",
-            "Predicción Óptima 1",
-            "Probabilidad Estimada 2",
-            "Predicción Óptima 2"
-        ]
-        
-        # Verificar y añadir campos faltantes
-        nuevos_encabezados = []
-        for campo in campos_requeridos + list(fila_dict.keys()):
-            if campo not in encabezados and campo not in nuevos_encabezados:
-                nuevos_encabezados.append(campo)
-        
-        if nuevos_encabezados:
-            sheet.insert_row(nuevos_encabezados, 2)  # Añadir nuevas columnas
-        
-        # Preparar fila con todos los campos
-        fila_completa = []
-        for col in sheet.row_values(1):  # Usar encabezados actualizados
-            if col in fila_dict:
-                # Convertir valores a string y limpiar
-                valor = str(fila_dict[col]).strip()
-                # Manejar valores booleanos
-                if valor.lower() == 'true':
-                    valor = '1'
-                elif valor.lower() == 'false':
-                    valor = '0'
-                fila_completa.append(valor)
-            else:
-                fila_completa.append('')
-        
-        # Añadir fila
-        sheet.append_row(fila_completa)
-        st.toast("Datos guardados correctamente", icon="✅")
-        return True
-        
-    except Exception as e:
-        st.error(f"Error al guardar: {str(e)}")
-        if st.session_state.get("voz_activa", False):
-            leer_en_voz("Error al guardar los datos. Por favor intente nuevamente.")
-        return False
 
 def mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=None):
     """
