@@ -284,7 +284,6 @@ def mostrar_pacientes():
     if st.session_state.get("voz_activa", False):
         leer_en_voz("Estás en la sección de participantes. Aquí puedes consultar los registros guardados.")
 
-    # Conectar y cargar registros
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     df = pd.DataFrame(sheet.get_all_records())
 
@@ -301,99 +300,83 @@ def mostrar_pacientes():
     df["ID Paciente"] = ["Registro #" + str(i + 1) for i in df.index]
     seleccionado = st.selectbox("Selecciona un registro para ver el detalle:", ["Selecciona"] + df["ID Paciente"].tolist())
 
-    if seleccionado == "Selecciona":
-        return
+    if seleccionado != "Selecciona":
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz(f"Has seleccionado el {seleccionado}. Mostrando los detalles.")
 
-    if st.session_state.get("voz_activa", False):
-        leer_en_voz(f"Has seleccionado el {seleccionado}. Mostrando los detalles.")
+        idx = df[df["ID Paciente"] == seleccionado].index[0]
+        registro = df.iloc[idx]
+        st.subheader(f"🧾 {seleccionado}")
 
-    idx = df[df["ID Paciente"] == seleccionado].index[0]
-    registro = df.iloc[idx]
-    st.subheader(f"🧾 {seleccionado}")
+        with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
+            preguntas_json = json.load(f)
 
-    with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
-        preguntas_json = json.load(f)
+        codigo_a_label = {}
+        codigo_a_opciones = {}
 
-    codigo_a_label = {}
-    codigo_a_opciones = {}
-
-    # Bloques simples
-    for bloque in ["Generales", "Familia", "Hábitos"]:
-        contenido = preguntas_json.get(bloque, {})
-        if isinstance(contenido, list):  # General, Hábitos
-            for p in contenido:
+        for bloque in ["Generales", "Salud", "Hábitos Alimenticios"]:
+            for p in preguntas_json.get(bloque, []):
                 codigo = p.get("codigo")
                 if codigo:
                     codigo_a_label[codigo] = p.get("label", codigo)
                     if "valores" in p and "opciones" in p:
                         codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
-        elif isinstance(contenido, dict):  # Familia
-            for grupo in contenido.values():
-                for p in grupo:
-                    codigo = p.get("codigo")
-                    if codigo:
-                        codigo_a_label[codigo] = p.get("label", codigo)
-                        if "valores" in p and "opciones" in p:
-                            codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
 
-    # Antecedentes familiares (si existe)
-    for familiar, grupo in preguntas_json.get("Antecedentes familiares", {}).items():
-        for p in grupo:
-            codigo = p.get("codigo")
-            if codigo:
-                codigo_a_label[codigo] = p.get("label", codigo)
-                if "valores" in p and "opciones" in p:
-                    codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
+        for familiar, grupo in preguntas_json.get("Antecedentes familiares", {}).items():
+            for p in grupo:
+                codigo = p.get("codigo")
+                if codigo:
+                    codigo_a_label[codigo] = p.get("label", codigo)
+                    if "valores" in p and "opciones" in p:
+                        codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
 
-    # Variables relevantes
-    variables_etiquetadas = []
-    if "Probabilidad Estimada" in registro and "Predicción Óptima" in registro:
-        prob = float(registro["Probabilidad Estimada"])
-        pred = int(registro["Predicción Óptima"])
-        modelo = cargar_modelo1()
-        df_modelo = registro.to_frame().T
-        df_modelo["SEXO"] = df_modelo["SEXO"].replace({"Masculino": 1, "Femenino": 0, "Otro": 2})
-        X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
-        df_modelo['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
-        df_modelo['Predicción Óptima'] = (df_modelo['Probabilidad Estimada'] >= 0.18).astype(int)
+        variables_etiquetadas = []
+        if "Probabilidad Estimada" in registro and "Predicción Óptima" in registro:
+            prob = float(registro["Probabilidad Estimada"])
+            pred = int(registro["Predicción Óptima"])
+            modelo = cargar_modelo()
+            df_modelo = registro.to_frame().T
+            df_modelo["SEXO"] = df_modelo["SEXO"].replace({"Masculino": 1, "Femenino": 0, "Otro": 2})
+            X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
+            df_modelo['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
+            df_modelo['Predicción Óptima'] = (df_modelo['Probabilidad Estimada'] >= 0.18).astype(int)
 
-        variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
-        for var, val in variables_relevantes:
-            nombre = codigo_a_label.get(var, var)
-            if var in codigo_a_opciones:
+            variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
+            for var, val in variables_relevantes:
+                nombre = codigo_a_label.get(var, var)
+                if var in codigo_a_opciones:
+                    try:
+                        val = codigo_a_opciones[var].get(int(val), val)
+                    except:
+                        pass
+                variables_etiquetadas.append((nombre, val))
+
+            texto_diagnostico = mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz(texto_diagnostico)
+
+        st.markdown("#### ✍🏽 Tus respuestas")
+        respuestas_mostradas = []
+        for campo, valor in registro.items():
+            if campo in ["Registrado por", "ID Paciente"]:
+                continue
+            label = codigo_a_label.get(campo, campo)
+            if campo in codigo_a_opciones:
                 try:
-                    val = codigo_a_opciones[var].get(int(val), val)
+                    valor = codigo_a_opciones[campo].get(int(valor), valor)
                 except:
                     pass
-            variables_etiquetadas.append((nombre, val))
+            respuestas_mostradas.append((label, valor))
+            st.markdown(f"**{label}:** {valor}")
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz(f"{label}: {valor}")
 
-        texto_diagnostico = mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
         if st.session_state.get("voz_activa", False):
-            leer_en_voz(texto_diagnostico)
+            leer_en_voz("Presiona el botón azul con rojo de la parte de abajo para descargar tus respuestas.")
 
-    # Mostrar respuestas del paciente
-    st.markdown("#### ✍🏽 Tus respuestas")
-    respuestas_mostradas = []
-    for campo, valor in registro.items():
-        if campo in ["Registrado por", "ID Paciente"]:
-            continue
-        label = codigo_a_label.get(campo, campo)
-        if campo in codigo_a_opciones:
-            try:
-                valor = codigo_a_opciones[campo].get(int(valor), valor)
-            except:
-                pass
-        respuestas_mostradas.append((label, valor))
-        st.markdown(f"**{label}:** {valor}")
-        if st.session_state.get("voz_activa", False):
-            leer_en_voz(f"{label}: {valor}")
-
-    if st.session_state.get("voz_activa", False):
-        leer_en_voz("Presiona el botón azul con rojo de la parte de abajo para descargar tus respuestas.")
-
-    if st.button("📥 Descargar resumen de respuestas"):
-        pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
-        st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
+        if st.button("📥 Descargar resumen de respuestas"):
+            pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
+            st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
 
 
 
