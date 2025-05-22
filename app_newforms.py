@@ -495,7 +495,97 @@ def guardar_respuesta_paciente(fila_dict):
             leer_en_voz("Error al guardar los datos. Por favor intente nuevamente.")
         return False
 
-
+@st.cache_data
+def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
+    """
+    Realiza predicciones usando el flujo de dos modelos con validación de datos.
+    
+    Args:
+        df_input (pd.DataFrame): DataFrame con los datos de entrada
+        threshold1 (float): Umbral para el modelo 1 (default: 0.18)
+        threshold2 (float): Umbral para el modelo 2 (default: 0.18)
+        
+    Returns:
+        pd.DataFrame: DataFrame con las predicciones añadidas
+        None: Si ocurre un error
+    """
+    try:
+        # Validación inicial
+        if df_input.empty:
+            st.error("Error: DataFrame de entrada vacío")
+            return None
+            
+        # Crear copia para no modificar el original
+        df = df_input.copy()
+        
+        # 1. Preprocesamiento seguro de datos
+        # -----------------------------------
+        # Convertir columnas numéricas
+        numeric_cols = ['edad', 'peso', 'talla', 'cintura']
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(-1)
+        
+        # Mapeo de sexo con validación
+        if 'sexo' in df.columns:
+            df['sexo'] = df['sexo'].apply(lambda x: 1 if str(x).strip().lower() in ['hombre', '1', 'h'] else 
+                                          2 if str(x).strip().lower() in ['mujer', '2', 'm'] else -1)
+        
+        # Asegurar todas las columnas requeridas
+        for col in COLUMNAS_MODELO:
+            if col not in df.columns:
+                df[col] = -1  # Valor por defecto para datos faltantes
+        
+        # 2. Predicción con Modelo 1
+        # --------------------------
+        modelo1 = cargar_modelo1()
+        if not hasattr(modelo1, 'predict_proba'):
+            st.error("Error: Modelo 1 no tiene método predict_proba")
+            return None
+            
+        try:
+            X1 = df[COLUMNAS_MODELO].astype(float)
+            df["Probabilidad Estimada 1"] = modelo1.predict_proba(X1)[:, 1]
+            df["Predicción Óptima 1"] = (df["Probabilidad Estimada 1"] >= threshold1).astype(int)
+        except Exception as e:
+            st.error(f"Error en Modelo 1: {str(e)}")
+            return None
+        
+        # 3. Predicción con Modelo 2 (solo si Modelo 1 detecta riesgo)
+        # -----------------------------------------------------------
+        if df["Predicción Óptima 1"].iloc[0] == 1:
+            modelo2 = cargar_modelo2()
+            if not hasattr(modelo2, 'predict_proba'):
+                st.error("Error: Modelo 2 no tiene método predict_proba")
+                return df  # Retornar al menos resultados del Modelo 1
+                
+            try:
+                X2 = df[COLUMNAS_MODELO].astype(float)
+                df["Probabilidad Estimada 2"] = modelo2.predict_proba(X2)[:, 1]
+                
+                # Validar probabilidades antes de convertir a predicción
+                if not (0 <= df["Probabilidad Estimada 2"].iloc[0] <= 1):
+                    raise ValueError("Probabilidad fuera de rango [0,1]")
+                    
+                df["Predicción Óptima 2"] = (df["Probabilidad Estimada 2"] >= threshold2).astype(int)
+            except Exception as e:
+                st.error(f"Error en Modelo 2: {str(e)}")
+                # Mantener resultados del Modelo 1 incluso si falla el 2
+                df["Probabilidad Estimada 2"] = None
+                df["Predicción Óptima 2"] = None
+        
+        # Validación final de resultados
+        required_cols = ["Probabilidad Estimada 1", "Predicción Óptima 1"]
+        if not all(col in df.columns for col in required_cols):
+            st.error("Error: Faltan columnas esenciales de predicción")
+            return None
+            
+        return df
+        
+    except Exception as e:
+        st.error(f"Error inesperado en predicción: {str(e)}")
+        return None
+    
 def guardar_respuesta_paciente(fila_dict):
     try:
         sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
