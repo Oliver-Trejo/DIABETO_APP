@@ -438,8 +438,16 @@ def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     encabezados = sheet.row_values(1)
 
     # Asegurar que existan las claves requeridas
-    fila_dict["Probabilidad Estimada"] = float(proba)
-    fila_dict["Predicción Óptima"] = int(pred)
+    if "Probabilidad Estimada 1" in fila_dict:
+        fila_dict["Probabilidad Estimada 1"] = float(fila_dict["Probabilidad Estimada 1"])
+        fila_dict["Predicción Óptima 1"] = int(fila_dict["Predicción Óptima 1"])
+
+    # Agregar predicciones del modelo 2 si existen
+    if "Probabilidad Estimada 2" in fila_dict:
+        fila_dict["Probabilidad Estimada 2"] = float(fila_dict["Probabilidad Estimada 2"])
+        fila_dict["Predicción Óptima 2"] = int(fila_dict["Predicción Óptima 2"])
+
+    fila_dict["Registrado por"] = st.session_state.get("usuario", "Desconocido")
     fila_dict["Registrado por"] = st.session_state.get("usuario", "Desconocido")
 
     # Crear la nueva fila respetando el orden de encabezados
