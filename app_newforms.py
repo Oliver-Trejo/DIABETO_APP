@@ -397,13 +397,6 @@ def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     fila_dict["Predicción Óptima"] = int(pred)
     fila_dict["Registrado por"] = st.session_state.get("usuario", "Desconocido")
 
-    # Asegurar que latitud y longitud estén en los encabezados
-    columnas_necesarias = ["latitud", "longitud"]
-    for col in columnas_necesarias:
-        if col not in encabezados:
-            sheet.update_cell(1, len(encabezados) + 1, col)  # Añade al final
-            encabezados.append(col)
-
     # Crear la nueva fila respetando el orden de encabezados
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
     sheet.append_row(nueva_fila)
