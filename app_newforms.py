@@ -13,6 +13,7 @@ from streamlit_geolocation import streamlit_geolocation
 from streamlit_folium import folium_static
 from streamlit.components.v1 import html
 import re
+from datetime import datetime
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
@@ -33,6 +34,7 @@ RUTA_MODELO2 = "2_modelo.pkl"
 def cargar_modelo1():
     return joblib.load(RUTA_MODELO1)
 
+@st.cache_resource
 def cargar_modelo2():
     return joblib.load(RUTA_MODELO2)
 
@@ -472,52 +474,61 @@ def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
     sheet.append_row(nueva_fila)
 
-
-def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
-    # Determinar tipo de salida según rango de probabilidad
-    if "Probabilidad Estimada 2" in st.session_state:
-        # Modelo 2: ya se activó y pred viene de ahí
+def mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=None):
+    """
+    Muestra el resultado de la predicción sin porcentajes y con la lógica corregida para determinar el modelo usado.
+    
+    Args:
+        pred (int): Predicción (0 o 1)
+        modelo_usado (int): 1 para modelo inicial, 2 para modelo secundario
+        variables_importantes (list): Lista de tuplas con variables relevantes
+    """
+    # Determinar diagnóstico según el modelo usado
+    if modelo_usado == 2:
         diagnostico = "Prediabético" if pred == 0 else "Diabético"
-        color = "#FFA500" if pred == 0 else "#FF0000"
+        color = "#FFA500" if pred == 0 else "#FF0000"  # Naranja para prediabetes, rojo para diabetes
         emoji = "🟠" if pred == 0 else "🚨"
         mensaje = (
-            "Tus respuestas indican señales compatibles con una condición prediabética."
+            "Tus respuestas indican señales compatibles con una condición prediabética. "
+            "Te recomendamos consultar a un especialista para una evaluación más detallada."
             if pred == 0 else
-            "Tus respuestas indican señales compatibles con diabetes tipo 2. Te recomendamos acudir a un centro de salud."
+            "Tus respuestas indican señales compatibles con diabetes tipo 2. "
+            "Es importante que acudas a un centro de salud para una evaluación médica."
         )
     else:
-        # Modelo 1: diagnóstico inicial
         diagnostico = "Sano" if pred == 0 else "En Riesgo"
-        color = "#4CAF50" if pred == 0 else "#FFA500"
+        color = "#4CAF50" if pred == 0 else "#FFA500"  # Verde para sano, naranja para riesgo
         emoji = "✅" if pred == 0 else "⚠️"
         mensaje = (
-            "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
+            "¡Buenas noticias! No encontramos señales claras de diabetes. "
+            "Mantén hábitos saludables para prevenir."
             if pred == 0 else
-            "Tus respuestas son similares a las de personas con diabetes. Continuaremos con una evaluación más detallada."
+            "Tus respuestas muestran factores de riesgo. Continuaremos con una evaluación más detallada."
         )
 
+    # Mostrar resultado en la interfaz
     st.markdown(f"""
-        <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; border-left: 5px solid {color};'>
-            <h3 style='color:{color};'>{emoji} Diagnóstico: {diagnostico}</h3>
-            <p>{mensaje}</p>
-            <p style='font-weight:bold;'>Tu perfil coincide con personas que tienen diabetes en un: {proba:.2%}</p>
+        <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; border-left: 5px solid {color}; margin-bottom:20px;'>
+            <h3 style='color:{color}; margin-top:0;'>{emoji} Diagnóstico: {diagnostico}</h3>
+            <p style='margin-bottom:0;'>{mensaje}</p>
         </div>
     """, unsafe_allow_html=True)
 
-    texto_a_leer = f"{mensaje}. Tu perfil coincide con personas con diabetes en un {proba:.0f} por ciento. "
-
+    # Mostrar variables importantes si es relevante
+    texto_a_leer = mensaje
     if pred == 1 and variables_importantes:
-        st.markdown("#### 🔍 Las siguientes respuestas fueron importantes para este resultado:")
-        texto_a_leer += "Las siguientes respuestas fueron importantes para este resultado. "
-
+        st.markdown("#### 🔍 Factores más relevantes en esta evaluación:")
+        texto_a_leer += " Los factores más relevantes fueron: "
+        
         for var, val in variables_importantes:
             st.markdown(f"- **{var}**: {val}")
-            texto_a_leer += f"{var}: {val}. "
+            texto_a_leer += f"{var}, "
 
+    # Lectura en voz alta si está activado
     if st.session_state.get("voz_activa", False):
         leer_en_voz(texto_a_leer)
 
-    return texto_a_leer
+    return diagnostico
 
 
 def ejecutar_prediccion():
@@ -538,70 +549,114 @@ def ejecutar_prediccion():
 
 def nuevo_registro():
     st.title("📝 Registro de Pacientes")
-
+    
+    # Configuración inicial
     if st.session_state.get("voz_activa", False):
         leer_en_voz("Estás en la sección de registro de pacientes. Por favor responde las siguientes preguntas.")
 
-    # ✅ Cargar preguntas del formulario
-    with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
-        secciones = json.load(f)
+    # Cargar estructura del formulario
+    try:
+        with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
+            secciones = json.load(f)
+    except FileNotFoundError:
+        st.error("Error crítico: No se encontró el archivo de preguntas. Contacta al administrador.")
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz("Error al cargar el formulario. Contacta al administrador.")
+        return
 
+    # Inicializar respuestas
     respuestas = {}
+    key_form = f"formulario_registro_{st.session_state.get('usuario', str(uuid.uuid4()))}"
 
-    if st.session_state.get("mostrar_prediccion"):
-        ejecutar_prediccion()
-        st.session_state["mostrar_prediccion"] = False
-
-    key_form = "formulario_registro_" + st.session_state.get("usuario", str(uuid.uuid4()))
-
+    # Mostrar formulario
     with st.form(key=key_form):
-        for titulo, preguntas in secciones.items():
+        # Renderizar todas las preguntas
+        for titulo, contenido in secciones.items():
             st.subheader(titulo)
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(f"Sección: {titulo}")
 
             if titulo == "Familia":
-                for familiar, grupo in preguntas.items():
+                for familiar, grupo in contenido.items():
                     st.markdown(f"### {familiar}")
                     if st.session_state.get("voz_activa", False):
-                        leer_en_voz(f"{familiar}")
-                    for i, p in enumerate(grupo):
-                        codigo = p.get("codigo", f"{p['label']}-{i}")
-                        if st.session_state.get("voz_activa", False):
-                            leer_en_voz(p.get("label", ""))
+                        leer_en_voz(f"Antecedentes familiares de {familiar}")
+                    for p in grupo:
+                        codigo = p.get("codigo", f"{p['label']}_{uuid.uuid4().hex[:6]}")
                         respuestas[codigo] = render_pregunta(p, key=codigo)
             else:
-                for i, p in enumerate(preguntas):
-                    codigo = p.get("codigo", f"{p['label']}-{i}")
-                    if st.session_state.get("voz_activa", False):
-                        leer_en_voz(p.get("label", ""))
+                for p in contenido:
+                    codigo = p.get("codigo", f"{p['label']}_{uuid.uuid4().hex[:6]}")
                     respuestas[codigo] = render_pregunta(p, key=codigo)
 
-        if st.form_submit_button("Guardar"):
-            # 🔹 Hacer predicción con modelo 1 (y luego con modelo 2 si aplica)
-            df_modelo = pd.DataFrame([respuestas])
-            resultado = predecir_nuevos_registros(df_modelo)
+        # Botón de envío
+        if st.form_submit_button("📋 Guardar y evaluar"):
+            with st.spinner("Analizando respuestas..."):
+                try:
+                    # Convertir a DataFrame y validar
+                    df_modelo = pd.DataFrame([respuestas])
+                    
+                    # Asegurar columnas numéricas necesarias
+                    if 'edad' in df_modelo:
+                        df_modelo['edad'] = pd.to_numeric(df_modelo['edad'], errors='coerce')
+                    if 'peso' in df_modelo:
+                        df_modelo['peso'] = pd.to_numeric(df_modelo['peso'], errors='coerce')
+                    if 'talla' in df_modelo:
+                        df_modelo['talla'] = pd.to_numeric(df_modelo['talla'], errors='coerce')
+                    
+                    # Mapear sexo a valores numéricos
+                    if 'sexo' in df_modelo:
+                        df_modelo['sexo'] = df_modelo['sexo'].map({'Hombre': 1, 'Mujer': 2})
 
-            if "Predicción Óptima 2" in resultado.columns:
-                proba = resultado["Probabilidad Estimada 2"].iloc[0]
-                pred = resultado["Predicción Óptima 2"].iloc[0]
-            else:
-                proba = resultado["Probabilidad Estimada 1"].iloc[0]
-                pred = resultado["Predicción Óptima 1"].iloc[0]
+                    # Realizar predicciones
+                    resultado = predecir_nuevos_registros(df_modelo)
+                    
+                    # Determinar qué modelo se usó
+                    if "Predicción Óptima 2" in resultado.columns:
+                        modelo_usado = 2
+                        pred = int(resultado["Predicción Óptima 2"].iloc[0])
+                    else:
+                        modelo_usado = 1
+                        pred = int(resultado["Predicción Óptima 1"].iloc[0])
 
-            # 🔹 Guardar paciente
-            guardar_respuesta_paciente(respuestas, proba, pred)
+                    # Obtener variables importantes
+                    modelo = cargar_modelo2() if modelo_usado == 2 else cargar_modelo1()
+                    variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
+                    
+                    # Guardar en Google Sheets
+                    guardar_respuesta_paciente(respuestas)
+                    
+                    # Mostrar resultados
+                    st.success("✅ Evaluación completada correctamente")
+                    diagnostico = mostrar_resultado_prediccion(
+                        pred=pred,
+                        modelo_usado=modelo_usado,
+                        variables_importantes=variables_relevantes
+                    )
+                    
+                    # Generar PDF con resultados
+                    with st.expander("📄 Descargar resumen"):
+                        pdf_buffer = generar_pdf(
+                            [(p['label'], respuestas.get(p.get('codigo', ''), '')) 
+                             for seccion in secciones.values() 
+                             for p in (seccion if isinstance(seccion, list) else [])],
+                            variables_relevantes
+                        )
+                        st.download_button(
+                            label="Descargar evaluación completa",
+                            data=pdf_buffer,
+                            file_name=f"evaluacion_diabetes_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            mime="application/pdf"
+                        )
 
-            st.success("✅ Registro guardado correctamente.")
-            if st.session_state.get("voz_activa", False):
-                leer_en_voz("Registro guardado correctamente. Mostrando resultados.")
-            st.session_state["mostrar_prediccion"] = True
-
-            modelo_usado = cargar_modelo2() if pred == 1 and "Predicción Óptima 2" in resultado.columns else cargar_modelo1()
-            variables_relevantes = obtener_variables_importantes(modelo_usado, df_modelo)
-
-            mostrar_resultado_prediccion(proba, pred, variables_relevantes)
-            st.rerun()
+                except ValueError as e:
+                    st.error(f"Error en los datos: {str(e)}")
+                    if st.session_state.get("voz_activa", False):
+                        leer_en_voz("Hubo un error al procesar tus respuestas. Por favor verifica los datos ingresados.")
+                except Exception as e:
+                    st.error(f"Error inesperado: {str(e)}")
+                    if st.session_state.get("voz_activa", False):
+                        leer_en_voz("Ocurrió un error inesperado. Por favor intenta nuevamente.")
 
 
 def main():
