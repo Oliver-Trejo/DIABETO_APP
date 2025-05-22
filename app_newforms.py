@@ -299,7 +299,6 @@ def mostrar_pacientes():
     if st.session_state.get("voz_activa", False):
         leer_en_voz("Estás en la sección de participantes. Aquí puedes consultar los registros guardados.")
 
-    # Conectar y cargar registros
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     df = pd.DataFrame(sheet.get_all_records())
 
@@ -332,7 +331,6 @@ def mostrar_pacientes():
     codigo_a_label = {}
     codigo_a_opciones = {}
 
-    # Bloques simples
     for bloque in ["Generales", "Familia", "Hábitos"]:
         contenido = preguntas_json.get(bloque, {})
         if isinstance(contenido, list):  # General, Hábitos
@@ -351,7 +349,6 @@ def mostrar_pacientes():
                         if "valores" in p and "opciones" in p:
                             codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
 
-    # Antecedentes familiares (si existe)
     for familiar, grupo in preguntas_json.get("Antecedentes familiares", {}).items():
         for p in grupo:
             codigo = p.get("codigo")
@@ -360,33 +357,42 @@ def mostrar_pacientes():
                 if "valores" in p and "opciones" in p:
                     codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
 
-    # Variables relevantes
+    # 🔍 Determinar qué modelo se usó
     variables_etiquetadas = []
-    if "Probabilidad Estimada" in registro and "Predicción Óptima" in registro:
-        prob = float(registro["Probabilidad Estimada"])
-        pred = int(registro["Predicción Óptima"])
+    if "Probabilidad Estimada 2" in registro and "Predicción Óptima 2" in registro:
+        prob = float(registro["Probabilidad Estimada 2"])
+        pred = int(registro["Predicción Óptima 2"])
         modelo = cargar_modelo2()
-        df_modelo = registro.to_frame().T
-        df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2})
-        X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
-        df_modelo['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
-        df_modelo['Predicción Óptima'] = (df_modelo['Probabilidad Estimada'] >= 0.18).astype(int)
+    elif "Probabilidad Estimada 1" in registro and "Predicción Óptima 1" in registro:
+        prob = float(registro["Probabilidad Estimada 1"])
+        pred = int(registro["Predicción Óptima 1"])
+        modelo = cargar_modelo1()
+    else:
+        st.warning("No hay predicción guardada para este registro.")
+        return
 
-        variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
-        for var, val in variables_relevantes:
-            nombre = codigo_a_label.get(var, var)
-            if var in codigo_a_opciones:
-                try:
-                    val = codigo_a_opciones[var].get(int(val), val)
-                except:
-                    pass
-            variables_etiquetadas.append((nombre, val))
+    df_modelo = registro.to_frame().T
+    df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2})
+    X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
 
-        texto_diagnostico = mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
-        if st.session_state.get("voz_activa", False):
-            leer_en_voz(texto_diagnostico)
+    # Recalcular si lo deseas (opcional)
+    df_modelo['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
+    df_modelo['Predicción Óptima'] = (df_modelo['Probabilidad Estimada'] >= 0.18).astype(int)
 
-    # Mostrar respuestas del paciente
+    variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
+    for var, val in variables_relevantes:
+        nombre = codigo_a_label.get(var, var)
+        if var in codigo_a_opciones:
+            try:
+                val = codigo_a_opciones[var].get(int(val), val)
+            except:
+                pass
+        variables_etiquetadas.append((nombre, val))
+
+    texto_diagnostico = mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
+    if st.session_state.get("voz_activa", False):
+        leer_en_voz(texto_diagnostico)
+
     st.markdown("#### ✍🏽 Tus respuestas")
     respuestas_mostradas = []
     for campo, valor in registro.items():
@@ -411,12 +417,21 @@ def mostrar_pacientes():
         st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
 
 
-def predecir_nuevos_registros(df_input, threshold=0.18):
-    modelo = cargar_modelo2()
-    X = df_input[COLUMNAS_MODELO].replace("", -1).astype(float)
-    df_input['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
-    df_input['Predicción Óptima'] = (df_input['Probabilidad Estimada'] >= threshold).astype(int)
+
+def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
+    modelo1 = cargar_modelo1()
+    X1 = df_input[COLUMNAS_MODELO].replace("", -1).astype(float)
+    df_input["Probabilidad Estimada 1"] = modelo1.predict_proba(X1)[:, 1]
+    df_input["Predicción Óptima 1"] = (df_input["Probabilidad Estimada 1"] >= threshold1).astype(int)
+
+    if df_input["Predicción Óptima 1"].iloc[0] == 1:
+        modelo2 = cargar_modelo2()
+        X2 = df_input[COLUMNAS_MODELO].replace("", -1).astype(float)
+        df_input["Probabilidad Estimada 2"] = modelo2.predict_proba(X2)[:, 1]
+        df_input["Predicción Óptima 2"] = (df_input["Probabilidad Estimada 2"] >= threshold2).astype(int)
+
     return df_input
+
 
 def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
@@ -463,8 +478,6 @@ def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
                 texto_a_leer += f"{var}: {val}. "
 
     return texto_a_leer
-
-
 
 def ejecutar_prediccion():
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
@@ -524,11 +537,16 @@ def nuevo_registro():
                     respuestas[codigo] = render_pregunta(p, key=codigo)
 
         if st.form_submit_button("Guardar"):
-            # 🔹 Hacer predicción
+            # 🔹 Hacer predicción con modelo 1 (y luego con modelo 2 si aplica)
             df_modelo = pd.DataFrame([respuestas])
             resultado = predecir_nuevos_registros(df_modelo)
-            proba = resultado["Probabilidad Estimada"].iloc[0]
-            pred = resultado["Predicción Óptima"].iloc[0]
+
+            if "Predicción Óptima 2" in resultado.columns:
+                proba = resultado["Probabilidad Estimada 2"].iloc[0]
+                pred = resultado["Predicción Óptima 2"].iloc[0]
+            else:
+                proba = resultado["Probabilidad Estimada 1"].iloc[0]
+                pred = resultado["Predicción Óptima 1"].iloc[0]
 
             # 🔹 Guardar paciente
             guardar_respuesta_paciente(respuestas, proba, pred)
@@ -537,10 +555,13 @@ def nuevo_registro():
             if st.session_state.get("voz_activa", False):
                 leer_en_voz("Registro guardado correctamente. Mostrando resultados.")
             st.session_state["mostrar_prediccion"] = True
-            modelo = cargar_modelo2()
-            variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
+
+            modelo_usado = cargar_modelo2() if pred == 1 and "Predicción Óptima 2" in resultado.columns else cargar_modelo1()
+            variables_relevantes = obtener_variables_importantes(modelo_usado, df_modelo)
+
             mostrar_resultado_prediccion(proba, pred, variables_relevantes)
             st.rerun()
+
 
 def main():
     if "logged_in" not in st.session_state:
