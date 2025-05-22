@@ -447,37 +447,51 @@ def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     sheet.append_row(nueva_fila)
 
 def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
-    color = "#FFA500" if pred == 1 else "#4CAF50"
-    emoji = "⚠️" if pred == 1 else "✅"
-    titulo = (
-        "Es importante que visites un centro de salud. Tus respuestas se parecen a las de personas con diabetes tipo 2."
-        if pred == 1
-        else "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
-    )
+    # Determinar tipo de salida según rango de probabilidad
+    if "Probabilidad Estimada 2" in st.session_state:
+        # Modelo 2: ya se activó y pred viene de ahí
+        diagnostico = "Prediabético" if pred == 0 else "Diabético"
+        color = "#FFA500" if pred == 0 else "#FF0000"
+        emoji = "🟠" if pred == 0 else "🚨"
+        mensaje = (
+            "Tus respuestas indican señales compatibles con una condición prediabética."
+            if pred == 0 else
+            "Tus respuestas indican señales compatibles con diabetes tipo 2. Te recomendamos acudir a un centro de salud."
+        )
+    else:
+        # Modelo 1: diagnóstico inicial
+        diagnostico = "Sano" if pred == 0 else "En Riesgo"
+        color = "#4CAF50" if pred == 0 else "#FFA500"
+        emoji = "✅" if pred == 0 else "⚠️"
+        mensaje = (
+            "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
+            if pred == 0 else
+            "Tus respuestas son similares a las de personas con diabetes. Continuaremos con una evaluación más detallada."
+        )
 
     st.markdown(f"""
         <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; border-left: 5px solid {color};'>
-            <h3 style='color:{color};'>{emoji} {titulo}</h3>
+            <h3 style='color:{color};'>{emoji} Diagnóstico: {diagnostico}</h3>
+            <p>{mensaje}</p>
             <p style='font-weight:bold;'>Tu perfil coincide con personas que tienen diabetes en un: {proba:.2%}</p>
         </div>
     """, unsafe_allow_html=True)
 
-    texto_a_leer = ""
-    if st.session_state.get("voz_activa", False):
-        texto_a_leer += f"{titulo}. "
-        texto_a_leer += f"Tu perfil coincide con personas con diabetes en un {proba:.0f} por ciento. "
+    texto_a_leer = f"{mensaje}. Tu perfil coincide con personas con diabetes en un {proba:.0f} por ciento. "
 
     if pred == 1 and variables_importantes:
         st.markdown("#### 🔍 Las siguientes respuestas fueron importantes para este resultado:")
-        if st.session_state.get("voz_activa", False):
-            texto_a_leer += "Las siguientes respuestas fueron importantes para este resultado. "
+        texto_a_leer += "Las siguientes respuestas fueron importantes para este resultado. "
 
         for var, val in variables_importantes:
             st.markdown(f"- **{var}**: {val}")
-            if st.session_state.get("voz_activa", False):
-                texto_a_leer += f"{var}: {val}. "
+            texto_a_leer += f"{var}: {val}. "
+
+    if st.session_state.get("voz_activa", False):
+        leer_en_voz(texto_a_leer)
 
     return texto_a_leer
+
 
 def ejecutar_prediccion():
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
