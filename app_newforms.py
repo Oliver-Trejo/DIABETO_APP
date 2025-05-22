@@ -303,14 +303,13 @@ def mostrar_pacientes():
     df = pd.DataFrame(sheet.get_all_records())
 
     usuario = st.session_state.get("usuario", "").strip().lower()
+    df = df[df["Registrado por"].str.strip().str.lower() == usuario]
 
     if df.empty:
         st.info("Todavía no hay ningún registro guardado. Puedes crear uno en la sección de ‘Nuevo Registro’.")
         if st.session_state.get("voz_activa", False):
             leer_en_voz("Todavía no tienes ningún registro guardado. Ve a la sección de nuevo registro para crear uno.")
         return
-
-    df = df[df["Registrado por"].str.strip().str.lower() == usuario]
 
     df = df.dropna(how="all").reset_index(drop=True)
     df["ID Paciente"] = ["Registro #" + str(i + 1) for i in df.index]
@@ -330,8 +329,7 @@ def mostrar_pacientes():
         codigo_a_label = {}
         codigo_a_opciones = {}
 
-        # Procesar Generales y Hábitos
-        for bloque in ["Generales", "Hábitos"]:
+        for bloque in ["Generales", "Salud", "Hábitos Alimenticios"]:
             for p in preguntas_json.get(bloque, []):
                 codigo = p.get("codigo")
                 if codigo:
@@ -339,16 +337,6 @@ def mostrar_pacientes():
                     if "valores" in p and "opciones" in p:
                         codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
 
-        # Procesar Familia correctamente como diccionario
-        for familiar, grupo in preguntas_json.get("Familia", {}).items():
-            for p in grupo:
-                codigo = p.get("codigo")
-                if codigo:
-                    codigo_a_label[codigo] = p.get("label", codigo)
-                    if "valores" in p and "opciones" in p:
-                        codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
-
-        # Procesar Antecedentes familiares si existe
         for familiar, grupo in preguntas_json.get("Antecedentes familiares", {}).items():
             for p in grupo:
                 codigo = p.get("codigo")
@@ -363,7 +351,7 @@ def mostrar_pacientes():
             pred = int(registro["Predicción Óptima"])
             modelo = cargar_modelo1()
             df_modelo = registro.to_frame().T
-            df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2})
+            df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2,})
             X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
             df_modelo['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
             df_modelo['Predicción Óptima'] = (df_modelo['Probabilidad Estimada'] >= 0.18).astype(int)
@@ -404,7 +392,6 @@ def mostrar_pacientes():
         if st.button("📥 Descargar resumen de respuestas"):
             pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
             st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
-
 
 def predecir_nuevos_registros(df_input, threshold=0.18):
     modelo = cargar_modelo1()
