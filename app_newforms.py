@@ -1,4 +1,3 @@
-# APP con nuevo formulario
 import streamlit as st
 from oauth2client.service_account import ServiceAccountCredentials
 import json
@@ -276,7 +275,6 @@ def buscar_usuario_por_nombre(nombre):
 def registrar_usuario(nombre, password):
     sheet = obtener_hoja_usuarios()
     sheet.append_row([nombre.strip(), hash_password(password)])
-
 
 # --- FUNCIONES PRINCIPALES ---
 def login_page():
