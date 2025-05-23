@@ -426,6 +426,7 @@ def nuevo_registro():
     if st.session_state.get("voz_activa", False):
         leer_en_voz("Estás en la sección de registro de pacientes. Por favor responde las siguientes preguntas.")
 
+    # 1. Cargar estructura de preguntas
     try:
         with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
             secciones = json.load(f)
@@ -439,45 +440,51 @@ def nuevo_registro():
     respuestas = {}
     key_form = f"form_registro_{st.session_state.get('usuario', 'anon')}_{int(time.time())}"
 
+    # 2. Mostrar el formulario
     with st.form(key=key_form, clear_on_submit=True):
         for titulo, contenido in secciones.items():
             st.subheader(titulo)
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(titulo)
 
-            if isinstance(content := contenido, dict):  # Familia
-                for familiar, grupo in content.items():
+            if isinstance(contenido, dict):  # Sección tipo familia
+                for familiar, grupo in contenido.items():
                     with st.expander(f"Antecedentes familiares: {familiar}"):
                         for p in grupo:
                             codigo = p.get("codigo", f"{uuid.uuid4().hex[:6]}")
                             respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
-            elif isinstance(content, list):  # Listado plano
-                for p in content:
+            elif isinstance(contenido, list):  # Sección plana
+                for p in contenido:
                     codigo = p.get("codigo", f"{uuid.uuid4().hex[:6]}")
                     respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
 
         submitted = st.form_submit_button("💾 Guardar y Evaluar")
 
+    # 3. Procesar envío
     if submitted:
         with st.spinner("Guardando y evaluando..."):
             try:
+                # Validar campos obligatorios
                 campos_requeridos = ['edad', 'sexo', 'peso', 'talla']
-                faltantes = [c for c in campos_requeridos if not respuestas.get(c)]
+                faltantes = [c for c in campos_requeridos if respuestas.get(c) in [None, "", " "]]
                 if faltantes:
                     raise ValueError(f"Faltan campos obligatorios: {', '.join(faltantes)}")
 
+                # Convertir a DataFrame y evaluar
                 df_input = pd.DataFrame([respuestas])
                 resultado = predecir_nuevos_registros(df_input)
 
                 if resultado is None or resultado.empty:
                     raise RuntimeError("La evaluación no se pudo completar.")
 
+                # Preparar fila final para guardar
                 fila_final = resultado.iloc[0].to_dict()
                 fila_final.update({
                     "Registrado por": st.session_state.get("usuario", "Anónimo"),
                     "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
 
+                # Guardar en Google Sheets
                 exito = guardar_respuesta_paciente(fila_final)
                 if exito:
                     st.success("✅ Respuestas guardadas y evaluadas.")
@@ -488,6 +495,7 @@ def nuevo_registro():
                 st.error(f"Error: {str(e)}")
                 if st.session_state.get("voz_activa", False):
                     leer_en_voz("Ocurrió un error al guardar los datos.")
+
 
 def guardar_respuesta_paciente(fila_dict):
     """
