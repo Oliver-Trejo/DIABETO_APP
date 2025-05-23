@@ -332,12 +332,23 @@ def mostrar_pacientes():
         if "Probabilidad Estimada" in registro and "Predicción Óptima" in registro:
             prob = float(registro["Probabilidad Estimada"])
             pred = int(registro["Predicción Óptima"])
+            prob = float(registro["Probabilidad Estimada"])
+            pred = int(registro["Predicción Óptima"])
+
             modelo = cargar_modelo1()
-            df_modelo = registro.to_frame().T
-            df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer":2})
+            df_modelo = pd.DataFrame([registro])
+
+            # Normalizar sexo si es texto
+            if df_modelo["sexo"].iloc[0] in ["Hombre", "Mujer"]:
+                df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2})
+
+            # Asegurar que todas las columnas del modelo existen
+            for col in COLUMNAS_MODELO:
+                if col not in df_modelo.columns:
+                    df_modelo[col] = -1  # Rellenar faltantes con valor neutro
+
             X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
-            df_modelo['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
-            df_modelo['Predicción Óptima'] = (df_modelo['Probabilidad Estimada'] >= 0.18).astype(int)
+            variables_relevantes = obtener_variables_importantes(modelo, X)
 
             variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
             for var, val in variables_relevantes:
@@ -378,10 +389,21 @@ def mostrar_pacientes():
 
 def predecir_nuevos_registros(df_input, threshold=0.18):
     modelo = cargar_modelo1()
+
+    # ✅ Asegurar que todas las columnas requeridas estén en el DataFrame
+    for col in COLUMNAS_MODELO:
+        if col not in df_input.columns:
+            df_input[col] = -1  # Valor por defecto para columnas faltantes
+
+    # 🔄 Reemplazar vacíos y convertir a tipo numérico
     X = df_input[COLUMNAS_MODELO].replace("", -1).astype(float)
+
+    # 📈 Calcular predicción
     df_input['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
     df_input['Predicción Óptima'] = (df_input['Probabilidad Estimada'] >= threshold).astype(int)
+
     return df_input
+
 
 def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
@@ -392,8 +414,17 @@ def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     fila_dict["Predicción Óptima"] = int(pred)
     fila_dict["Registrado por"] = st.session_state.get("usuario", "Desconocido")
 
-    # Crear la nueva fila respetando el orden de encabezados
+    # Detectar columnas nuevas no presentes en encabezados
+    nuevos = [k for k in fila_dict.keys() if k not in encabezados]
+    if nuevos:
+        encabezados += nuevos
+        sheet.delete_row(1)  # Elimina encabezado anterior
+        sheet.insert_row(encabezados, 1)  # Inserta encabezado actualizado
+
+    # Construir la nueva fila en orden de encabezados
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
+
+    # Agregar la fila
     sheet.append_row(nueva_fila)
 
 def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
