@@ -420,157 +420,74 @@ def mostrar_perfil():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
+def nuevo_registro():
+    st.title("📝 Registro de Pacientes")
 
-def mostrar_pacientes():
-    st.title("📋 Participante")
-
-    # Configuración inicial
     if st.session_state.get("voz_activa", False):
-        leer_en_voz("Estás en la sección de participantes. Aquí puedes consultar los registros guardados.")
+        leer_en_voz("Estás en la sección de registro de pacientes. Por favor responde las siguientes preguntas.")
 
     try:
-        # Cargar datos desde Google Sheets
-        sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
-        registros = sheet.get_all_records()
-        
-        if not registros:
-            st.info("No hay registros disponibles en la base de datos.")
-            return
-            
-        df = pd.DataFrame(registros).dropna(how="all")
-        
-        # Filtrar por usuario actual
-        usuario_actual = st.session_state.get("usuario", "").strip().lower()
-        df = df[df["Registrado por"].str.strip().str.lower() == usuario_actual]
+        with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
+            secciones = json.load(f)
+    except FileNotFoundError:
+        st.error("No se encontró el archivo de preguntas.")
+        return
+    except json.JSONDecodeError:
+        st.error("El archivo de preguntas está mal formado.")
+        return
 
-        if df.empty:
-            st.info("No tienes registros guardados aún. Crea uno en 'Nuevo Registro'.")
-            return
+    respuestas = {}
+    key_form = f"form_registro_{st.session_state.get('usuario', 'anon')}_{int(time.time())}"
 
-        # Generar IDs legibles
-        df["ID"] = [f"Registro #{i+1}" for i in range(len(df))]
-        
-        # Selección de registro
-        registro_seleccionado = st.selectbox(
-            "Selecciona un registro para ver el detalle:", 
-            ["Selecciona"] + df["ID"].tolist()
-        )
+    with st.form(key=key_form, clear_on_submit=True):
+        for titulo, contenido in secciones.items():
+            st.subheader(titulo)
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz(titulo)
 
-        if registro_seleccionado == "Selecciona":
-            return
+            if isinstance(content := contenido, dict):  # Familia
+                for familiar, grupo in content.items():
+                    with st.expander(f"Antecedentes familiares: {familiar}"):
+                        for p in grupo:
+                            codigo = p.get("codigo", f"{uuid.uuid4().hex[:6]}")
+                            respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
+            elif isinstance(content, list):  # Listado plano
+                for p in content:
+                    codigo = p.get("codigo", f"{uuid.uuid4().hex[:6]}")
+                    respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
 
-        # Obtener registro específico
-        registro = df[df["ID"] == registro_seleccionado].iloc[0].to_dict()
-        
-        # Mostrar encabezado
-        st.subheader(f"🧾 {registro_seleccionado}")
-        if st.session_state.get("voz_activa", False):
-            leer_en_voz(f"Mostrando detalles del {registro_seleccionado}")
+        submitted = st.form_submit_button("💾 Guardar y Evaluar")
 
-        # Cargar estructura de preguntas
-        try:
-            with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
-                preguntas = json.load(f)
-        except FileNotFoundError:
-            st.error("Error al cargar las preguntas de referencia")
-            return
-
-        # Procesamiento de diagnóstico
-        modelo_usado = None
-        diagnostico = None
-        
-        # Verificar modelo 2 primero
-        if all(k in registro for k in ["Probabilidad Estimada 2", "Predicción Óptima 2"]):
+    if submitted:
+        with st.spinner("Guardando y evaluando..."):
             try:
-                prob = float(registro["Probabilidad Estimada 2"])
-                pred = int(registro["Predicción Óptima 2"])
-                modelo = cargar_modelo2()
-                modelo_usado = 2
-            except (ValueError, TypeError) as e:
-                st.warning(f"Datos inválidos en predicción avanzada: {str(e)}")
-                return
-        # Verificar modelo 1
-        elif all(k in registro for k in ["Probabilidad Estimada 1", "Predicción Óptima 1"]):
-            try:
-                prob = float(registro["Probabilidad Estimada 1"])
-                pred = int(registro["Predicción Óptima 1"])
-                modelo = cargar_modelo1()
-                modelo_usado = 1
-            except (ValueError, TypeError) as e:
-                st.warning(f"Datos inválidos en predicción inicial: {str(e)}")
-                return
-        else:
-            st.warning("Este registro no contiene datos de diagnóstico completos")
-            return
+                campos_requeridos = ['edad', 'sexo', 'peso', 'talla']
+                faltantes = [c for c in campos_requeridos if not respuestas.get(c)]
+                if faltantes:
+                    raise ValueError(f"Faltan campos obligatorios: {', '.join(faltantes)}")
 
-        # Mostrar resultado
-        with st.container():
-            st.markdown("### 📊 Resultado de Evaluación")
-            
-            # Obtener variables importantes
-            df_modelo = pd.DataFrame([registro])
-            df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2})
-            X = df_modelo[COLUMNAS_MODELO].fillna(-1).astype(float)
-            
-            try:
-                variables_relevantes = obtener_variables_importantes(modelo, X)
-                diagnostico = mostrar_resultado_prediccion(
-                    pred=pred,
-                    modelo_usado=modelo_usado,
-                    variables_importantes=variables_relevantes
-                )
+                df_input = pd.DataFrame([respuestas])
+                resultado = predecir_nuevos_registros(df_input)
+
+                if resultado is None or resultado.empty:
+                    raise RuntimeError("La evaluación no se pudo completar.")
+
+                fila_final = resultado.iloc[0].to_dict()
+                fila_final.update({
+                    "Registrado por": st.session_state.get("usuario", "Anónimo"),
+                    "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+
+                exito = guardar_respuesta_paciente(fila_final)
+                if exito:
+                    st.success("✅ Respuestas guardadas y evaluadas.")
+                else:
+                    st.error("❌ No se pudieron guardar los datos.")
+
             except Exception as e:
-                st.error(f"Error al generar diagnóstico: {str(e)}")
-
-        # Mostrar respuestas detalladas
-        st.markdown("### ✍🏽 Respuestas Registradas")
-        
-        # Mapeo de códigos a preguntas
-        mapeo_preguntas = {}
-        for seccion in preguntas.values():
-            if isinstance(seccion, list):
-                for p in seccion:
-                    if "codigo" in p:
-                        mapeo_preguntas[p["codigo"]] = p.get("label", p["codigo"])
-            elif isinstance(seccion, dict):
-                for grupo in seccion.values():
-                    for p in grupo:
-                        if "codigo" in p:
-                            mapeo_preguntas[p["codigo"]] = p.get("label", p["codigo"])
-
-        # Mostrar respuestas organizadas
-        for campo, valor in registro.items():
-            if campo in ["Registrado por", "ID"] or pd.isna(valor):
-                continue
-                
-            etiqueta = mapeo_preguntas.get(campo, campo.replace("_", " ").title())
-            valor_mostrar = str(valor).strip()
-            
-            # Formatear valores especiales
-            if campo in ["sexo"]:
-                valor_mostrar = "Hombre" if valor == 1 else "Mujer" if valor == 2 else valor_mostrar
-            elif campo in ["Predicción Óptima 1", "Predicción Óptima 2"]:
-                valor_mostrar = "Sí" if int(float(valor)) == 1 else "No"
-            
-            st.markdown(f"**{etiqueta}:** {valor_mostrar}")
-
-        # Botón de descarga
-        st.download_button(
-            label="📥 Descargar informe completo",
-            data=generar_pdf(
-                [(mapeo_preguntas.get(k, k), str(v))  # <-- Ahora con paréntesis cerrado
-                for k, v in registro.items() 
-                if k not in ["Registrado por", "ID"]]
-            ),
-            file_name=f"Informe_{registro_seleccionado.replace(' ', '_')}.pdf",
-            mime="application/pdf"
-        )
-
-    except Exception as e:
-        st.error(f"Error al cargar los registros: {str(e)}")
-        if st.session_state.get("voz_activa", False):
-            leer_en_voz("Ocurrió un error al cargar los registros. Por favor intenta nuevamente.")
-
+                st.error(f"Error: {str(e)}")
+                if st.session_state.get("voz_activa", False):
+                    leer_en_voz("Ocurrió un error al guardar los datos.")
 
 def guardar_respuesta_paciente(fila_dict):
     """
@@ -767,7 +684,6 @@ def mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=None)
 
     return diagnostico
 
-
 def ejecutar_prediccion():
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     df = pd.DataFrame(sheet.get_all_records())
@@ -784,74 +700,155 @@ def ejecutar_prediccion():
     pred = int(proba >= 0.21)
     mostrar_resultado_prediccion(proba, pred)
 
-def nuevo_registro():
-    st.title("📝 Registro de Pacientes")
+def mostrar_pacientes():
+    st.title("📋 Participante")
 
+    # Configuración inicial
     if st.session_state.get("voz_activa", False):
-        leer_en_voz("Estás en la sección de registro de pacientes. Por favor responde las siguientes preguntas.")
+        leer_en_voz("Estás en la sección de participantes. Aquí puedes consultar los registros guardados.")
 
     try:
-        with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
-            secciones = json.load(f)
-    except FileNotFoundError:
-        st.error("No se encontró el archivo de preguntas.")
-        return
-    except json.JSONDecodeError:
-        st.error("El archivo de preguntas está mal formado.")
-        return
+        # Cargar datos desde Google Sheets
+        sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
+        registros = sheet.get_all_records()
+        
+        if not registros:
+            st.info("No hay registros disponibles en la base de datos.")
+            return
+            
+        df = pd.DataFrame(registros).dropna(how="all")
+        
+        # Filtrar por usuario actual
+        usuario_actual = st.session_state.get("usuario", "").strip().lower()
+        df = df[df["Registrado por"].str.strip().str.lower() == usuario_actual]
 
-    respuestas = {}
-    key_form = f"form_registro_{st.session_state.get('usuario', 'anon')}_{int(time.time())}"
+        if df.empty:
+            st.info("No tienes registros guardados aún. Crea uno en 'Nuevo Registro'.")
+            return
 
-    with st.form(key=key_form, clear_on_submit=True):
-        for titulo, contenido in secciones.items():
-            st.subheader(titulo)
-            if st.session_state.get("voz_activa", False):
-                leer_en_voz(titulo)
+        # Generar IDs legibles
+        df["ID"] = [f"Registro #{i+1}" for i in range(len(df))]
+        
+        # Selección de registro
+        registro_seleccionado = st.selectbox(
+            "Selecciona un registro para ver el detalle:", 
+            ["Selecciona"] + df["ID"].tolist()
+        )
 
-            if isinstance(content := contenido, dict):  # Familia
-                for familiar, grupo in content.items():
-                    with st.expander(f"Antecedentes familiares: {familiar}"):
-                        for p in grupo:
-                            codigo = p.get("codigo", f"{uuid.uuid4().hex[:6]}")
-                            respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
-            elif isinstance(content, list):  # Listado plano
-                for p in content:
-                    codigo = p.get("codigo", f"{uuid.uuid4().hex[:6]}")
-                    respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
+        if registro_seleccionado == "Selecciona":
+            return
 
-        submitted = st.form_submit_button("💾 Guardar y Evaluar")
+        # Obtener registro específico
+        registro = df[df["ID"] == registro_seleccionado].iloc[0].to_dict()
+        
+        # Mostrar encabezado
+        st.subheader(f"🧾 {registro_seleccionado}")
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz(f"Mostrando detalles del {registro_seleccionado}")
 
-    if submitted:
-        with st.spinner("Guardando y evaluando..."):
+        # Cargar estructura de preguntas
+        try:
+            with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
+                preguntas = json.load(f)
+        except FileNotFoundError:
+            st.error("Error al cargar las preguntas de referencia")
+            return
+
+        # Procesamiento de diagnóstico
+        modelo_usado = None
+        diagnostico = None
+        
+        # Verificar modelo 2 primero
+        if all(k in registro for k in ["Probabilidad Estimada 2", "Predicción Óptima 2"]):
             try:
-                campos_requeridos = ['edad', 'sexo', 'peso', 'talla']
-                faltantes = [c for c in campos_requeridos if not respuestas.get(c)]
-                if faltantes:
-                    raise ValueError(f"Faltan campos obligatorios: {', '.join(faltantes)}")
+                prob = float(registro["Probabilidad Estimada 2"])
+                pred = int(registro["Predicción Óptima 2"])
+                modelo = cargar_modelo2()
+                modelo_usado = 2
+            except (ValueError, TypeError) as e:
+                st.warning(f"Datos inválidos en predicción avanzada: {str(e)}")
+                return
+        # Verificar modelo 1
+        elif all(k in registro for k in ["Probabilidad Estimada 1", "Predicción Óptima 1"]):
+            try:
+                prob = float(registro["Probabilidad Estimada 1"])
+                pred = int(registro["Predicción Óptima 1"])
+                modelo = cargar_modelo1()
+                modelo_usado = 1
+            except (ValueError, TypeError) as e:
+                st.warning(f"Datos inválidos en predicción inicial: {str(e)}")
+                return
+        else:
+            st.warning("Este registro no contiene datos de diagnóstico completos")
+            return
 
-                df_input = pd.DataFrame([respuestas])
-                resultado = predecir_nuevos_registros(df_input)
-
-                if resultado is None or resultado.empty:
-                    raise RuntimeError("La evaluación no se pudo completar.")
-
-                fila_final = resultado.iloc[0].to_dict()
-                fila_final.update({
-                    "Registrado por": st.session_state.get("usuario", "Anónimo"),
-                    "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
-
-                exito = guardar_respuesta_paciente(fila_final)
-                if exito:
-                    st.success("✅ Respuestas guardadas y evaluadas.")
-                else:
-                    st.error("❌ No se pudieron guardar los datos.")
-
+        # Mostrar resultado
+        with st.container():
+            st.markdown("### 📊 Resultado de Evaluación")
+            
+            # Obtener variables importantes
+            df_modelo = pd.DataFrame([registro])
+            df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2})
+            X = df_modelo[COLUMNAS_MODELO].fillna(-1).astype(float)
+            
+            try:
+                variables_relevantes = obtener_variables_importantes(modelo, X)
+                diagnostico = mostrar_resultado_prediccion(
+                    pred=pred,
+                    modelo_usado=modelo_usado,
+                    variables_importantes=variables_relevantes
+                )
             except Exception as e:
-                st.error(f"Error: {str(e)}")
-                if st.session_state.get("voz_activa", False):
-                    leer_en_voz("Ocurrió un error al guardar los datos.")
+                st.error(f"Error al generar diagnóstico: {str(e)}")
+
+        # Mostrar respuestas detalladas
+        st.markdown("### ✍🏽 Respuestas Registradas")
+        
+        # Mapeo de códigos a preguntas
+        mapeo_preguntas = {}
+        for seccion in preguntas.values():
+            if isinstance(seccion, list):
+                for p in seccion:
+                    if "codigo" in p:
+                        mapeo_preguntas[p["codigo"]] = p.get("label", p["codigo"])
+            elif isinstance(seccion, dict):
+                for grupo in seccion.values():
+                    for p in grupo:
+                        if "codigo" in p:
+                            mapeo_preguntas[p["codigo"]] = p.get("label", p["codigo"])
+
+        # Mostrar respuestas organizadas
+        for campo, valor in registro.items():
+            if campo in ["Registrado por", "ID"] or pd.isna(valor):
+                continue
+                
+            etiqueta = mapeo_preguntas.get(campo, campo.replace("_", " ").title())
+            valor_mostrar = str(valor).strip()
+            
+            # Formatear valores especiales
+            if campo in ["sexo"]:
+                valor_mostrar = "Hombre" if valor == 1 else "Mujer" if valor == 2 else valor_mostrar
+            elif campo in ["Predicción Óptima 1", "Predicción Óptima 2"]:
+                valor_mostrar = "Sí" if int(float(valor)) == 1 else "No"
+            
+            st.markdown(f"**{etiqueta}:** {valor_mostrar}")
+
+        # Botón de descarga
+        st.download_button(
+            label="📥 Descargar informe completo",
+            data=generar_pdf(
+                [(mapeo_preguntas.get(k, k), str(v))  # <-- Ahora con paréntesis cerrado
+                for k, v in registro.items() 
+                if k not in ["Registrado por", "ID"]]
+            ),
+            file_name=f"Informe_{registro_seleccionado.replace(' ', '_')}.pdf",
+            mime="application/pdf"
+        )
+
+    except Exception as e:
+        st.error(f"Error al cargar los registros: {str(e)}")
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz("Ocurrió un error al cargar los registros. Por favor intenta nuevamente.")
 
 def main():
     if "logged_in" not in st.session_state:
