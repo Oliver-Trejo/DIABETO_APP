@@ -12,6 +12,7 @@ from streamlit_geolocation import streamlit_geolocation
 from streamlit_folium import folium_static
 from streamlit.components.v1 import html
 import re
+import numpy as np
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
@@ -596,6 +597,7 @@ def mostrar_pacientes():
             if df_modelo["sexo"].iloc[0] not in [1, 2]:
                 df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2}).fillna(-1)
 
+            df_modelo = df_modelo.replace("", np.nan)
             X = df_modelo[COLUMNAS_MODELO].apply(pd.to_numeric, errors="coerce").fillna(-1)
             variables_relevantes = obtener_variables_importantes(modelo, X)
 
