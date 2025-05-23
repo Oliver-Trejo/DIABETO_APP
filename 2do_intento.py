@@ -320,80 +320,46 @@ def mostrar_pacientes():
         if st.session_state.get("voz_activa", False):
             leer_en_voz(f"Has seleccionado el {seleccionado}. Mostrando los detalles.")
 
-        idx = df[df["ID Paciente"] == seleccionado].index[0]
-        registro = df.iloc[idx]
+        registro = df[df["ID Paciente"] == seleccionado].iloc[0]
         st.subheader(f"🧾 {seleccionado}")
 
-        with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
-            preguntas_json = json.load(f)
+        prob1 = float(registro.get("Probabilidad Estimada 1", 0))
+        pred1 = int(registro.get("Predicción Óptima 1", 0))
+        prob2 = registro.get("Probabilidad Estimada 2", "")
+        pred2 = registro.get("Predicción Óptima 2", "")
 
-        # Construir mapeo de códigos a etiquetas y opciones
-        codigo_a_label = {}
-        codigo_a_opciones = {}
-        for seccion in preguntas_json.values():
-            if isinstance(seccion, list):
-                for p in seccion:
-                    codigo = p.get("codigo")
-                    if codigo:
-                        codigo_a_label[codigo] = p.get("label", codigo)
-                        if "valores" in p and "opciones" in p:
-                            codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
-            elif isinstance(seccion, dict):
-                for grupo in seccion.values():
-                    for p in grupo:
-                        codigo = p.get("codigo")
-                        if codigo:
-                            codigo_a_label[codigo] = p.get("label", codigo)
-                            if "valores" in p and "opciones" in p:
-                                codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
+        modelo1 = cargar_modelo1()
+        modelo2 = cargar_modelo2()
 
-        # Variables importantes para el resultado
-        variables_etiquetadas = []
-        if "Probabilidad Estimada" in registro and "Predicción Óptima" in registro:
-            prob = float(registro["Probabilidad Estimada"])
-            pred = int(registro["Predicción Óptima"])
+        df_modelo = pd.DataFrame([registro])[COLUMNAS_MODELO].replace("", -1).astype(float)
 
-            modelo = cargar_modelo1()
-            df_modelo = pd.DataFrame([registro])[COLUMNAS_MODELO].replace("", -1).astype(float)
-            variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
+        if pred1 == 0:
+            variables = obtener_variables_importantes(modelo1, df_modelo)
+            texto_diagnostico = mostrar_resultado_prediccion(prob1, 0, variables)
+        else:
+            if prob2 != "":
+                prob2 = float(prob2)
+                pred2 = int(pred2)
+                variables = obtener_variables_importantes(modelo2, df_modelo)
+                texto_diagnostico = mostrar_resultado_prediccion(prob2, pred2, variables)
+            else:
+                variables = obtener_variables_importantes(modelo1, df_modelo)
+                texto_diagnostico = mostrar_resultado_prediccion(prob1, 1, variables)
 
-            for var, val in variables_relevantes:
-                nombre = codigo_a_label.get(var, var)
-                if var in codigo_a_opciones:
-                    try:
-                        val = codigo_a_opciones[var].get(int(val), val)
-                    except:
-                        pass
-                variables_etiquetadas.append((nombre, val))
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz(texto_diagnostico)
 
-            texto_diagnostico = mostrar_resultado_prediccion(prob, pred, variables_etiquetadas)
-            if st.session_state.get("voz_activa", False):
-                leer_en_voz(texto_diagnostico)
-
-        # Mostrar respuestas del usuario
         st.markdown("#### ✍🏽 Tus respuestas")
-        respuestas_mostradas = []
         for campo, valor in registro.items():
             if campo in ["Registrado por", "ID Paciente"]:
                 continue
-            label = codigo_a_label.get(campo, campo)
-            if campo in codigo_a_opciones:
-                try:
-                    valor = codigo_a_opciones[campo].get(int(valor), valor)
-                except:
-                    pass
-            respuestas_mostradas.append((label, valor))
-            st.markdown(f"**{label}:** {valor}")
-            if st.session_state.get("voz_activa", False):
-                leer_en_voz(f"{label}: {valor}")
-
-        # Descargar respuestas en PDF
-        if st.session_state.get("voz_activa", False):
-            leer_en_voz("Presiona el botón azul con rojo de la parte de abajo para descargar tus respuestas.")
+            st.markdown(f"**{campo}:** {valor}")
 
         if st.button("📥 Descargar resumen de respuestas"):
-            pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
+            respuestas_mostradas = [(campo, valor) for campo, valor in registro.items() if campo not in ["Registrado por", "ID Paciente"]]
+            pdf_buffer = generar_pdf(respuestas_mostradas, variables)
             st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
+
 
 
 def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
@@ -489,12 +455,10 @@ def nuevo_registro():
     if st.session_state.get("voz_activa", False):
         leer_en_voz("Estás en la sección de registro de pacientes. Por favor responde las siguientes preguntas.")
 
-    # Cargar preguntas del formulario
     with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
         secciones = json.load(f)
 
     respuestas = {}
-
     key_form = "formulario_registro_" + st.session_state.get("usuario", str(uuid.uuid4()))
 
     with st.form(key=key_form):
@@ -521,29 +485,49 @@ def nuevo_registro():
                     respuestas[codigo] = render_pregunta(p, key=codigo)
 
         if st.form_submit_button("Guardar"):
-            df_modelo = pd.DataFrame([respuestas])
-            resultado = predecir_nuevos_registros(df_modelo)
+            df_input = pd.DataFrame([respuestas])
+            df_input = df_input.replace("", -1)
 
-            fila_final = resultado.iloc[0].to_dict()
-            pred1 = int(fila_final["Predicción Óptima 1"])
+            # ── MODELO 1 ──
+            modelo1 = cargar_modelo1()
+            X1 = df_input[COLUMNAS_MODELO].astype(float)
+            prob1 = modelo1.predict_proba(X1)[0, 1]
+            pred1 = int(prob1 >= 0.18)
 
-            # Elegir modelo para mostrar variables importantes
-            if pred1 == 1 and not pd.isna(fila_final["Predicción Óptima 2"]):
-                modelo = cargar_modelo2()
+            fila_final = respuestas.copy()
+            fila_final["Probabilidad Estimada 1"] = round(prob1, 6)
+            fila_final["Predicción Óptima 1"] = pred1
+            fila_final["Registrado por"] = st.session_state.get("usuario", "Desconocido")
+
+            # ── MODELO 2 ── (si aplica)
+            if pred1 == 1:
+                modelo2 = cargar_modelo2()
+                prob2 = modelo2.predict_proba(X1)[0, 1]
+                pred2 = int(prob2 >= 0.18)
+                fila_final["Probabilidad Estimada 2"] = round(prob2, 6)
+                fila_final["Predicción Óptima 2"] = pred2
+                modelo_usado = modelo2
+                variables = obtener_variables_importantes(modelo2, X1)
             else:
-                modelo = cargar_modelo1()
+                fila_final["Probabilidad Estimada 2"] = ""
+                fila_final["Predicción Óptima 2"] = ""
+                modelo_usado = modelo1
+                variables = obtener_variables_importantes(modelo1, X1)
 
-            variables_relevantes = obtener_variables_importantes(modelo, resultado)
-
-            # Guardar en Sheets
+            # Guardar fila
             guardar_respuesta_paciente(fila_final)
 
             # Mostrar resultado
             st.success("✅ Registro guardado correctamente.")
             if st.session_state.get("voz_activa", False):
                 leer_en_voz("Registro guardado correctamente. Mostrando resultados.")
-            mostrar_resultado_prediccion(fila_final, variables_relevantes)
+            mostrar_resultado_prediccion(
+                fila_final["Probabilidad Estimada 2"] if pred1 == 1 else fila_final["Probabilidad Estimada 1"],
+                fila_final["Predicción Óptima 2"] if pred1 == 1 else fila_final["Predicción Óptima 1"],
+                variables
+            )
             st.rerun()
+
 
 
 def main():
