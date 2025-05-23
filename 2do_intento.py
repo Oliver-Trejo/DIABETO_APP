@@ -343,12 +343,21 @@ def mostrar_pacientes():
 
 
 
-def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
+def predecir_nuevos_registros(df_input, threshold1=0.33, threshold2=0.49):
     modelo1 = cargar_modelo1()
-    X = df_input[COLUMNAS_MODELO].replace("", -1).astype(float)
+
+    # Validar y limpiar datos de entrada
+    X = df_input[COLUMNAS_MODELO].copy()
+
+    # Reemplazar vacíos con -1 y convertir a float de manera segura
+    for col in COLUMNAS_MODELO:
+        X[col] = pd.to_numeric(X[col], errors='coerce').fillna(-1)
+
+    # Predicción con Modelo 1
     df_input["Probabilidad Estimada 1"] = modelo1.predict_proba(X)[:, 1]
     df_input["Predicción Óptima 1"] = (df_input["Probabilidad Estimada 1"] >= threshold1).astype(int)
 
+    # Si el resultado fue positivo, aplicar Modelo 2
     if df_input["Predicción Óptima 1"].iloc[0] == 1:
         modelo2 = cargar_modelo2()
         df_input["Probabilidad Estimada 2"] = modelo2.predict_proba(X)[:, 1]
@@ -358,6 +367,7 @@ def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
         df_input["Predicción Óptima 2"] = None
 
     return df_input
+
 
 def guardar_respuesta_paciente(fila_dict):
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
@@ -376,12 +386,18 @@ def guardar_respuesta_paciente(fila_dict):
 
 
 def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
+    def safe_float(val, default=0.0):
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
+
     # Determinar diagnóstico
     try:
         pred1 = int(fila.get("Predicción Óptima 1", 0))
-        prob1 = float(fila.get("Probabilidad Estimada 1", 0))
+        prob1 = safe_float(fila.get("Probabilidad Estimada 1"))
         pred2 = fila.get("Predicción Óptima 2", "")
-        prob2 = fila.get("Probabilidad Estimada 2", "")
+        prob2 = safe_float(fila.get("Probabilidad Estimada 2"))
 
         if pred1 == 0:
             diagnostico = "Sano"
@@ -391,13 +407,13 @@ def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
             mensaje = "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
         elif str(pred2) == "0":
             diagnostico = "Prediabético"
-            probabilidad = float(prob2)
+            probabilidad = prob2
             color = "#FFA500"
             emoji = "🟠"
             mensaje = "Tus respuestas indican señales compatibles con una condición prediabética. Te recomendamos consultar a un especialista."
         elif str(pred2) == "1":
             diagnostico = "Diabético"
-            probabilidad = float(prob2)
+            probabilidad = prob2
             color = "#FF0000"
             emoji = "🚨"
             mensaje = "Tus respuestas indican señales compatibles con diabetes tipo 2. Es importante que acudas a un centro de salud lo antes posible."
@@ -440,6 +456,7 @@ def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
         leer_en_voz(texto_a_leer.strip())
 
     return diagnostico
+
 
 
 def ejecutar_prediccion():
@@ -496,7 +513,18 @@ def nuevo_registro():
                     respuestas[codigo] = render_pregunta(p, key=codigo)
 
         if st.form_submit_button("Guardar"):
-            df_modelo = pd.DataFrame([respuestas])
+            # Validar y limpiar las respuestas del formulario
+            respuestas_limpias = {}
+            for k, v in respuestas.items():
+                if v is None or v == "":
+                    respuestas_limpias[k] = -1  # valor por defecto
+                else:
+                    try:
+                        respuestas_limpias[k] = float(v) if k in COLUMNAS_MODELO else v
+                    except ValueError:
+                        respuestas_limpias[k] = -1  # valor por defecto si no puede convertirse
+
+            df_modelo = pd.DataFrame([respuestas_limpias])
             resultado = predecir_nuevos_registros(df_modelo)
 
             fila_final = resultado.iloc[0].to_dict()
