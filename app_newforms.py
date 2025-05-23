@@ -558,77 +558,117 @@ def guardar_respuesta_paciente(fila_dict):
 
     return False
     
-def mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=None):
+def mostrar_resultado_prediccion(pred: int, modelo_usado: int, variables_importantes: list = None) -> str:
     """
-    Muestra el resultado de la predicción sin porcentajes y con la lógica corregida para determinar el modelo usado.
-    
+    Muestra el resultado del diagnóstico en función del modelo y la predicción.
+
     Args:
-        pred (int): Predicción (0 o 1)
-        modelo_usado (int): 1 para modelo inicial, 2 para modelo secundario
-        variables_importantes (list): Lista de tuplas con variables relevantes
+        pred (int): 0 o 1. Resultado binario de la predicción.
+        modelo_usado (int): 1 (modelo inicial) o 2 (modelo más avanzado).
+        variables_importantes (list): Lista de tuplas (variable, valor) más influyentes. Opcional.
+
+    Returns:
+        str: Diagnóstico textual ("Sano", "En Riesgo", "Prediabético" o "Diabético").
     """
-    # Determinar diagnóstico según el modelo usado
-    if modelo_usado == 2:
-        diagnostico = "Prediabético" if pred == 0 else "Diabético"
-        color = "#FFA500" if pred == 0 else "#FF0000"  # Naranja para prediabetes, rojo para diabetes
-        emoji = "🟠" if pred == 0 else "🚨"
-        mensaje = (
-            "Tus respuestas indican señales compatibles con una condición prediabética. "
-            "Te recomendamos consultar a un especialista para una evaluación más detallada."
-            if pred == 0 else
-            "Tus respuestas indican señales compatibles con diabetes tipo 2. "
-            "Es importante que acudas a un centro de salud para una evaluación médica."
-        )
-    else:
-        diagnostico = "Sano" if pred == 0 else "En Riesgo"
-        color = "#4CAF50" if pred == 0 else "#FFA500"  # Verde para sano, naranja para riesgo
-        emoji = "✅" if pred == 0 else "⚠️"
-        mensaje = (
-            "¡Buenas noticias! No encontramos señales claras de diabetes. "
-            "Mantén hábitos saludables para prevenir."
-            if pred == 0 else
-            "Tus respuestas muestran factores de riesgo. Continuaremos con una evaluación más detallada."
-        )
+    try:
+        # Validación básica
+        pred = int(round(pred))  # Asegurar que sea 0 o 1
+        if modelo_usado not in [1, 2]:
+            raise ValueError("modelo_usado debe ser 1 o 2.")
 
-    # Mostrar resultado en la interfaz
-    st.markdown(f"""
-        <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; border-left: 5px solid {color}; margin-bottom:20px;'>
-            <h3 style='color:{color}; margin-top:0;'>{emoji} Diagnóstico: {diagnostico}</h3>
-            <p style='margin-bottom:0;'>{mensaje}</p>
-        </div>
-    """, unsafe_allow_html=True)
+        # Determinar resultado
+        if modelo_usado == 2:
+            diagnostico = "Prediabético" if pred == 0 else "Diabético"
+            color = "#FFA500" if pred == 0 else "#FF0000"
+            emoji = "🟠" if pred == 0 else "🚨"
+            mensaje = (
+                "Tus respuestas indican señales compatibles con una condición prediabética. "
+                "Te recomendamos consultar a un especialista."
+                if pred == 0 else
+                "Tus respuestas indican señales compatibles con diabetes tipo 2. "
+                "Es importante que acudas a un centro de salud lo antes posible."
+            )
+        else:
+            diagnostico = "Sano" if pred == 0 else "En Riesgo"
+            color = "#4CAF50" if pred == 0 else "#FFA500"
+            emoji = "✅" if pred == 0 else "⚠️"
+            mensaje = (
+                "¡Buenas noticias! No encontramos señales claras de diabetes. "
+                "Sigue cuidando tu salud." if pred == 0 else
+                "Tus respuestas muestran factores de riesgo. "
+                "Te sugerimos una evaluación más detallada."
+            )
 
-    # Mostrar variables importantes si es relevante
-    texto_a_leer = mensaje
-    if pred == 1 and variables_importantes:
-        st.markdown("#### 🔍 Factores más relevantes en esta evaluación:")
-        texto_a_leer += " Los factores más relevantes fueron: "
-        
-        for var, val in variables_importantes:
-            st.markdown(f"- **{var}**: {val}")
-            texto_a_leer += f"{var}, "
+        # Mostrar en interfaz
+        st.markdown(f"""
+            <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; 
+                        border-left: 5px solid {color}; margin-bottom:20px;'>
+                <h3 style='color:{color}; margin-top:0;'>{emoji} Diagnóstico: {diagnostico}</h3>
+                <p style='margin-bottom:0;'>{mensaje}</p>
+            </div>
+        """, unsafe_allow_html=True)
 
-    # Lectura en voz alta si está activado
-    if st.session_state.get("voz_activa", False):
-        leer_en_voz(texto_a_leer)
+        # Factores más relevantes
+        texto_a_leer = mensaje
+        if pred == 1 and variables_importantes:
+            st.markdown("#### 🔍 Factores más relevantes en esta evaluación:")
+            texto_a_leer += " Los factores más relevantes fueron: "
+            for var, val in variables_importantes:
+                st.markdown(f"- **{var}**: {val}")
+                texto_a_leer += f"{var}, "
 
-    return diagnostico
+        # Leer en voz si está activado
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz(texto_a_leer.strip())
+
+        return diagnostico
+
+    except Exception as e:
+        st.error(f"❌ Error al mostrar el diagnóstico: {str(e)}")
+        return "Diagnóstico no disponible"
 
 def ejecutar_prediccion():
-    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
-    df = pd.DataFrame(sheet.get_all_records())
-    if df.empty:
-        st.warning("No hay datos suficientes para predecir.")
-        return
-    faltantes = [col for col in COLUMNAS_MODELO if col not in df.columns]
-    if faltantes:
-        st.error(f"Faltan columnas: {faltantes}")
-        return
-    X = df.iloc[[-1]][COLUMNAS_MODELO].replace("", -1)
-    modelo = cargar_modelo2()
-    proba = modelo.predict_proba(X)[0, 1]
-    pred = int(proba >= 0.21)
-    mostrar_resultado_prediccion(proba, pred)
+    """
+    Aplica el modelo 2 a la última fila registrada en Google Sheets y muestra el diagnóstico.
+    """
+    try:
+        # Obtener hoja y datos
+        sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
+        registros = sheet.get_all_records()
+        if not registros:
+            st.warning("No hay registros disponibles para analizar.")
+            return
+
+        df = pd.DataFrame(registros).dropna(how="all")
+        if df.empty:
+            st.warning("No hay registros válidos en la hoja.")
+            return
+
+        # Verificar columnas necesarias
+        faltantes = [col for col in COLUMNAS_MODELO if col not in df.columns]
+        if faltantes:
+            st.error(f"Faltan columnas necesarias para el modelo: {faltantes}")
+            return
+
+        # Seleccionar última fila y convertir tipos
+        X = df.iloc[[-1]][COLUMNAS_MODELO].replace("", -1)
+        X = X.apply(pd.to_numeric, errors="coerce").fillna(-1)
+
+        # Cargar modelo y predecir
+        modelo = cargar_modelo2()
+        proba = modelo.predict_proba(X)[0, 1]
+        pred = int(proba >= 0.21)
+
+        # Variables importantes
+        variables = obtener_variables_importantes(modelo, X)
+
+        # Mostrar resultado
+        mostrar_resultado_prediccion(pred, modelo_usado=2, variables_importantes=variables)
+
+    except Exception as e:
+        st.error(f"❌ Error durante la ejecución de la predicción: {str(e)}")
+        if st.session_state.get("voz_activa", False):
+            leer_en_voz("Ocurrió un error al procesar la predicción.")
 
 def nuevo_registro():
     st.title("📝 Registro de Pacientes")
@@ -636,7 +676,7 @@ def nuevo_registro():
     if st.session_state.get("voz_activa", False):
         leer_en_voz("Estás en la sección de registro de pacientes. Por favor responde las siguientes preguntas.")
 
-    # 1. Cargar estructura de preguntas
+    # 1. Cargar estructura del formulario
     try:
         with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
             secciones = json.load(f)
@@ -650,20 +690,20 @@ def nuevo_registro():
     respuestas = {}
     key_form = f"form_registro_{st.session_state.get('usuario', 'anon')}_{int(time.time())}"
 
-    # 2. Mostrar el formulario
+    # 2. Mostrar formulario
     with st.form(key=key_form, clear_on_submit=True):
         for titulo, contenido in secciones.items():
             st.subheader(titulo)
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(titulo)
 
-            if isinstance(contenido, dict):  # Sección tipo familia
+            if isinstance(contenido, dict):  # Antecedentes familiares
                 for familiar, grupo in contenido.items():
                     with st.expander(f"Antecedentes familiares: {familiar}"):
                         for p in grupo:
                             codigo = p.get("codigo", f"{uuid.uuid4().hex[:6]}")
                             respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
-            elif isinstance(contenido, list):  # Sección plana
+            elif isinstance(contenido, list):  # Sección normal
                 for p in contenido:
                     codigo = p.get("codigo", f"{uuid.uuid4().hex[:6]}")
                     respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
@@ -680,14 +720,25 @@ def nuevo_registro():
                 if faltantes:
                     raise ValueError(f"Faltan campos obligatorios: {', '.join(faltantes)}")
 
-                # Convertir a DataFrame y evaluar
+                # Convertir respuestas a DataFrame
                 df_input = pd.DataFrame([respuestas])
                 resultado = predecir_nuevos_registros(df_input)
 
                 if resultado is None or resultado.empty:
-                    raise RuntimeError("La evaluación no se pudo completar.")
+                    raise RuntimeError("No se pudo completar la evaluación.")
 
-                # Preparar fila final para guardar
+                # Determinar modelo y predicción usados
+                if "Predicción Óptima 2" in resultado.columns and not pd.isna(resultado["Predicción Óptima 2"].iloc[0]):
+                    modelo_usado = 2
+                    pred = int(resultado["Predicción Óptima 2"].iloc[0])
+                else:
+                    modelo_usado = 1
+                    pred = int(resultado["Predicción Óptima 1"].iloc[0])
+
+                modelo = cargar_modelo2() if modelo_usado == 2 else cargar_modelo1()
+                variables_relevantes = obtener_variables_importantes(modelo, resultado)
+
+                # Preparar datos para guardar
                 fila_final = resultado.iloc[0].to_dict()
                 fila_final.update({
                     "Registrado por": st.session_state.get("usuario", "Anónimo"),
@@ -696,8 +747,10 @@ def nuevo_registro():
 
                 # Guardar en Google Sheets
                 exito = guardar_respuesta_paciente(fila_final)
+
                 if exito:
                     st.success("✅ Respuestas guardadas y evaluadas.")
+                    mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=variables_relevantes)
                 else:
                     st.error("❌ No se pudieron guardar los datos.")
 
