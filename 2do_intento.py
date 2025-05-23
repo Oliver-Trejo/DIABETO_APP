@@ -334,36 +334,53 @@ def mostrar_pacientes():
     st.markdown(f"### 🩺 Resultado del diagnóstico: {diagnostico}")
     st.markdown("### ✍🏽 Respuestas registradas")
 
-    # --- Mapeo profundo de etiquetas desde JSON ---
+    # --- Mapeo profundo ---
     etiquetas = {}
+    valores_a_texto = {}
 
     try:
         with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
             preguntas_json = json.load(f)
 
-        def extraer_codigos(data):
+        def extraer_mapeo(data):
             if isinstance(data, dict):
                 for v in data.values():
-                    extraer_codigos(v)
+                    extraer_mapeo(v)
             elif isinstance(data, list):
                 for item in data:
-                    if isinstance(item, dict) and "codigo" in item and "label" in item:
-                        etiquetas[item["codigo"]] = item["label"]
-            else:
-                pass
+                    if isinstance(item, dict) and "codigo" in item:
+                        codigo = item["codigo"]
+                        etiquetas[codigo] = item.get("label", codigo)
+                        # Mapeo de valores
+                        if "valores" in item and "opciones" in item:
+                            valores_a_texto[codigo] = {
+                                str(val): texto for val, texto in zip(item["valores"], item["opciones"])
+                            }
 
-        extraer_codigos(preguntas_json)
+        extraer_mapeo(preguntas_json)
 
     except Exception as e:
-        st.warning(f"No se pudo cargar etiquetas desde el JSON: {e}")
+        st.warning(f"No se pudo cargar etiquetas ni valores desde el JSON: {e}")
 
     # Mostrar respuestas traducidas
     for campo, valor in registro.items():
         if campo in ["Registrado por", "ID"] or pd.isna(valor):
             continue
-        label = etiquetas.get(campo, campo)
-        st.markdown(f"**{label}:** {valor}")
 
+        label = etiquetas.get(campo, campo)
+        texto_valor = str(valor)
+
+        # Traducir si existe mapeo
+        if campo in valores_a_texto:
+            texto_valor = valores_a_texto[campo].get(str(valor), str(valor))
+
+        elif campo == "sexo":
+            texto_valor = "Hombre" if str(valor) in ["1", "Hombre"] else "Mujer" if str(valor) in ["2", "Mujer"] else valor
+
+        elif campo.startswith("Predicción") or campo.startswith("Probabilidad"):
+            continue  # Ya mostrado arriba
+
+        st.markdown(f"**{label}:** {texto_valor}")
 
 def predecir_nuevos_registros(df_input, threshold1=0.33, threshold2=0.49):
     modelo1 = cargar_modelo1()
