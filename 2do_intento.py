@@ -602,11 +602,8 @@ def mostrar_pacientes():
             variables_relevantes = obtener_variables_importantes(modelo, X)
 
             # ✅ CORREGIDO: Argumentos nombrados
-            mostrar_resultado_prediccion(
-                pred=pred,
-                modelo_usado=modelo_usado,
-                variables_importantes=variables_relevantes
-            )
+            mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=variables_relevantes)
+            
         except Exception as e:
             st.error(f"Error al generar diagnóstico: {e}")
             if st.session_state.get("voz_activa", False):
