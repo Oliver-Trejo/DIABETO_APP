@@ -557,22 +557,6 @@ def guardar_respuesta_paciente(fila_dict):
             return False
 
     return False
-
-def ejecutar_prediccion():
-    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
-    df = pd.DataFrame(sheet.get_all_records())
-    if df.empty:
-        st.warning("No hay datos suficientes para predecir.")
-        return
-    faltantes = [col for col in COLUMNAS_MODELO if col not in df.columns]
-    if faltantes:
-        st.error(f"Faltan columnas: {faltantes}")
-        return
-    X = df.iloc[[-1]][COLUMNAS_MODELO].replace("", -1)
-    modelo = cargar_modelo2()
-    proba = modelo.predict_proba(X)[0, 1]
-    pred = int(proba >= 0.21)
-    mostrar_resultado_prediccion(proba, pred)
     
 def mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=None):
     """
@@ -630,6 +614,21 @@ def mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=None)
 
     return diagnostico
 
+def ejecutar_prediccion():
+    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
+    df = pd.DataFrame(sheet.get_all_records())
+    if df.empty:
+        st.warning("No hay datos suficientes para predecir.")
+        return
+    faltantes = [col for col in COLUMNAS_MODELO if col not in df.columns]
+    if faltantes:
+        st.error(f"Faltan columnas: {faltantes}")
+        return
+    X = df.iloc[[-1]][COLUMNAS_MODELO].replace("", -1)
+    modelo = cargar_modelo2()
+    proba = modelo.predict_proba(X)[0, 1]
+    pred = int(proba >= 0.21)
+    mostrar_resultado_prediccion(proba, pred)
 
 def nuevo_registro():
     st.title("📝 Registro de Pacientes")
