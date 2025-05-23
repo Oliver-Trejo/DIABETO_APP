@@ -180,32 +180,59 @@ def obtener_variables_importantes(modelo, datos, top_n=5):
 
     return variables_relevantes
 
-
 def generar_pdf(respuestas_completas, variables_relevantes):
+    """
+    Genera un PDF con las respuestas del paciente y las variables más relevantes.
+
+    Args:
+        respuestas_completas (list): Lista de tuplas (pregunta, respuesta)
+        variables_relevantes (list): Lista de tuplas (pregunta, valor)
+
+    Returns:
+        BytesIO: Buffer del PDF generado listo para descarga.
+    """
     pdf = FPDF()
+    pdf.set_title("Evaluación de Riesgo - DIABETO")
+    pdf.set_author("Sistema DIABETO")
+
+    # Página 1 - Respuestas completas
     pdf.add_page()
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(0, 10, "Respuestas del Paciente", ln=True)
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "📝 Respuestas del Paciente", ln=True)
 
     pdf.set_font("Arial", "", 10)
-    for pregunta, respuesta in respuestas_completas:
-        pregunta = str(pregunta).encode('latin-1', 'ignore').decode('latin-1')
-        respuesta = str(respuesta).encode('latin-1', 'ignore').decode('latin-1')
-        pdf.multi_cell(0, 10, f"{pregunta}: {respuesta}")
+    if respuestas_completas:
+        for pregunta, respuesta in respuestas_completas:
+            try:
+                pregunta = str(pregunta).encode('latin-1', 'ignore').decode('latin-1')
+                respuesta = str(respuesta).encode('latin-1', 'ignore').decode('latin-1')
+                pdf.multi_cell(0, 8, f"{pregunta}: {respuesta}")
+            except Exception as e:
+                pdf.multi_cell(0, 8, f"[Error al mostrar respuesta: {e}]")
+    else:
+        pdf.cell(0, 10, "No se registraron respuestas.", ln=True)
 
+    # Página 2 - Variables más relevantes
     pdf.add_page()
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(0, 10, "Preguntas Más Relevantes", ln=True)
-    
-    pdf.set_font("Arial", "", 10)
-    for pregunta, respuesta in variables_relevantes:
-        pregunta = str(pregunta).encode('latin-1', 'ignore').decode('latin-1')
-        respuesta = str(respuesta).encode('latin-1', 'ignore').decode('latin-1')
-        pdf.multi_cell(0, 10, f"{pregunta}: {respuesta}")
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "🔍 Variables Más Relevantes", ln=True)
 
+    pdf.set_font("Arial", "", 10)
+    if variables_relevantes:
+        for pregunta, respuesta in variables_relevantes:
+            try:
+                pregunta = str(pregunta).encode('latin-1', 'ignore').decode('latin-1')
+                respuesta = str(respuesta).encode('latin-1', 'ignore').decode('latin-1')
+                pdf.multi_cell(0, 8, f"{pregunta}: {respuesta}")
+            except Exception as e:
+                pdf.multi_cell(0, 8, f"[Error al mostrar variable: {e}]")
+    else:
+        pdf.cell(0, 10, "No se identificaron variables destacadas.", ln=True)
+
+    # Convertir a bytes
     buffer = BytesIO()
-    pdf_bytes = pdf.output(dest='S').encode('latin-1')  # Genera contenido como string y codifica
-    buffer = BytesIO(pdf_bytes)
+    pdf_bytes = pdf.output(dest="S").encode("latin-1")
+    buffer.write(pdf_bytes)
     buffer.seek(0)
     return buffer
 
