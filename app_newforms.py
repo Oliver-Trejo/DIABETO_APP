@@ -420,6 +420,144 @@ def mostrar_perfil():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
+@st.cache_data
+def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
+    """
+    Versión robusta con manejo de valores vacíos y errores
+    """
+    try:
+        # Validación inicial del dataframe
+        if df_input.empty or not isinstance(df_input, pd.DataFrame):
+            st.error("Datos de entrada inválidos o vacíos")
+            return None
+
+        # Crear copia segura
+        df = df_input.copy()
+        
+        # 1. Limpieza y conversión de datos
+        # ---------------------------------
+        # Mapeo de sexo seguro
+        if 'sexo' in df.columns:
+            df['sexo'] = df['sexo'].apply(
+                lambda x: 1 if str(x).strip().lower() in ['hombre', '1', 'h', 'masculino'] else
+                         2 if str(x).strip().lower() in ['mujer', '2', 'm', 'femenino'] else
+                         -1  # Valor por defecto para inválidos
+            )
+
+        # Columnas numéricas - manejo seguro de vacíos
+        numeric_cols = ['edad', 'peso', 'talla', 'cintura'] + [c for c in COLUMNAS_MODELO if c.startswith('a')]
+        for col in numeric_cols:
+            if col in df.columns:
+                # Convertir a numérico, vacíos se convierten a NaN y luego a -1
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(-1)
+
+        # Asegurar todas las columnas requeridas
+        for col in COLUMNAS_MODELO:
+            if col not in df.columns:
+                df[col] = -1  # Valor por defecto
+
+        # 2. Predicción con Modelo 1
+        # --------------------------
+        modelo1 = cargar_modelo1()
+        try:
+            X1 = df[COLUMNAS_MODELO].astype(float)
+            df["Probabilidad Estimada 1"] = modelo1.predict_proba(X1)[:, 1]
+            df["Predicción Óptima 1"] = (df["Probabilidad Estimada 1"] >= threshold1).astype(int)
+        except Exception as e:
+            st.error(f"Fallo Modelo 1: {str(e)}")
+            return None
+
+        # 3. Predicción con Modelo 2 (solo si Modelo 1 detecta riesgo)
+        # -----------------------------------------------------------
+        if df["Predicción Óptima 1"].iloc[0] == 1:
+            modelo2 = cargar_modelo2()
+            try:
+                X2 = df[COLUMNAS_MODELO].astype(float)
+                proba2 = modelo2.predict_proba(X2)[:, 1]
+                
+                # Validar probabilidades
+                if np.isnan(proba2).any():
+                    raise ValueError("Probabilidad contiene NaN")
+                
+                df["Probabilidad Estimada 2"] = proba2
+                df["Predicción Óptima 2"] = (df["Probabilidad Estimada 2"] >= threshold2).astype(int)
+            except Exception as e:
+                st.warning(f"Fallo Modelo 2: {str(e)} - Se mantienen resultados del Modelo 1")
+                df["Probabilidad Estimada 2"] = None
+                df["Predicción Óptima 2"] = None
+
+        return df
+
+    except Exception as e:
+        st.error(f"Error crítico en predicción: {str(e)}")
+        return None
+    
+def guardar_respuesta_paciente(fila_dict):
+    """
+    Guarda un registro de paciente en Google Sheets con validación robusta.
+
+    Args:
+        fila_dict (dict): Diccionario con los datos del paciente.
+
+    Returns:
+        bool: True si se guardó correctamente, False en caso de error.
+    """
+    MAX_INTENTOS = 3
+    intentos = 0
+
+    while intentos < MAX_INTENTOS:
+        try:
+            # Validación básica
+            if not fila_dict or not isinstance(fila_dict, dict):
+                st.error("❌ Los datos del paciente están vacíos o mal formateados.")
+                return False
+
+            # Limpiar y normalizar valores
+            fila_limpia = {
+                k: str(v).strip() if v is not None else ""
+                for k, v in fila_dict.items()
+            }
+
+            # Conexión con la hoja de Google Sheets
+            sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
+            encabezados = sheet.row_values(1)
+
+            # Crear encabezados si la hoja está vacía
+            if not encabezados:
+                encabezados = list(fila_limpia.keys())
+                sheet.insert_row(encabezados, 1)
+
+            # Verificar columnas nuevas que no existan aún
+            nuevas_columnas = [col for col in fila_limpia if col not in encabezados]
+            if nuevas_columnas:
+                encabezados += nuevas_columnas
+                sheet.update('A1', [encabezados])
+
+            # Ordenar la fila según los encabezados actualizados
+            fila_ordenada = [fila_limpia.get(col, "") for col in encabezados]
+
+            # Agregar fila al final
+            sheet.append_row(fila_ordenada)
+
+            # Validación post-escritura
+            registros = sheet.get_all_records()
+            if not registros or registros[-1].get("Registrado por") != fila_limpia.get("Registrado por"):
+                raise ValueError("La verificación de guardado falló.")
+
+            st.toast("✅ Datos guardados correctamente.")
+            return True
+
+        except gspread.exceptions.APIError as e:
+            intentos += 1
+            st.warning(f"🌐 Error al conectar con Sheets (intento {intentos}): {str(e)}")
+            time.sleep(2)
+
+        except Exception as e:
+            st.error(f"❌ Error al guardar los datos: {str(e)}")
+            return False
+
+    return False
+
 def nuevo_registro():
     st.title("📝 Registro de Pacientes")
 
@@ -496,146 +634,22 @@ def nuevo_registro():
                 if st.session_state.get("voz_activa", False):
                     leer_en_voz("Ocurrió un error al guardar los datos.")
 
-
-def guardar_respuesta_paciente(fila_dict):
-    """
-    Guarda un registro de paciente en Google Sheets con validación robusta.
-
-    Args:
-        fila_dict (dict): Diccionario con los datos del paciente.
-
-    Returns:
-        bool: True si se guardó correctamente, False en caso de error.
-    """
-    MAX_INTENTOS = 3
-    intentos = 0
-
-    while intentos < MAX_INTENTOS:
-        try:
-            # Validación básica
-            if not fila_dict or not isinstance(fila_dict, dict):
-                st.error("❌ Los datos del paciente están vacíos o mal formateados.")
-                return False
-
-            # Limpiar y normalizar valores
-            fila_limpia = {
-                k: str(v).strip() if v is not None else ""
-                for k, v in fila_dict.items()
-            }
-
-            # Conexión con la hoja de Google Sheets
-            sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
-            encabezados = sheet.row_values(1)
-
-            # Crear encabezados si la hoja está vacía
-            if not encabezados:
-                encabezados = list(fila_limpia.keys())
-                sheet.insert_row(encabezados, 1)
-
-            # Verificar columnas nuevas que no existan aún
-            nuevas_columnas = [col for col in fila_limpia if col not in encabezados]
-            if nuevas_columnas:
-                encabezados += nuevas_columnas
-                sheet.update('A1', [encabezados])
-
-            # Ordenar la fila según los encabezados actualizados
-            fila_ordenada = [fila_limpia.get(col, "") for col in encabezados]
-
-            # Agregar fila al final
-            sheet.append_row(fila_ordenada)
-
-            # Validación post-escritura
-            registros = sheet.get_all_records()
-            if not registros or registros[-1].get("Registrado por") != fila_limpia.get("Registrado por"):
-                raise ValueError("La verificación de guardado falló.")
-
-            st.toast("✅ Datos guardados correctamente.")
-            return True
-
-        except gspread.exceptions.APIError as e:
-            intentos += 1
-            st.warning(f"🌐 Error al conectar con Sheets (intento {intentos}): {str(e)}")
-            time.sleep(2)
-
-        except Exception as e:
-            st.error(f"❌ Error al guardar los datos: {str(e)}")
-            return False
-
-    return False
-
-
-@st.cache_data
-def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
-    """
-    Versión robusta con manejo de valores vacíos y errores
-    """
-    try:
-        # Validación inicial del dataframe
-        if df_input.empty or not isinstance(df_input, pd.DataFrame):
-            st.error("Datos de entrada inválidos o vacíos")
-            return None
-
-        # Crear copia segura
-        df = df_input.copy()
-        
-        # 1. Limpieza y conversión de datos
-        # ---------------------------------
-        # Mapeo de sexo seguro
-        if 'sexo' in df.columns:
-            df['sexo'] = df['sexo'].apply(
-                lambda x: 1 if str(x).strip().lower() in ['hombre', '1', 'h', 'masculino'] else
-                         2 if str(x).strip().lower() in ['mujer', '2', 'm', 'femenino'] else
-                         -1  # Valor por defecto para inválidos
-            )
-
-        # Columnas numéricas - manejo seguro de vacíos
-        numeric_cols = ['edad', 'peso', 'talla', 'cintura'] + [c for c in COLUMNAS_MODELO if c.startswith('a')]
-        for col in numeric_cols:
-            if col in df.columns:
-                # Convertir a numérico, vacíos se convierten a NaN y luego a -1
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(-1)
-
-        # Asegurar todas las columnas requeridas
-        for col in COLUMNAS_MODELO:
-            if col not in df.columns:
-                df[col] = -1  # Valor por defecto
-
-        # 2. Predicción con Modelo 1
-        # --------------------------
-        modelo1 = cargar_modelo1()
-        try:
-            X1 = df[COLUMNAS_MODELO].astype(float)
-            df["Probabilidad Estimada 1"] = modelo1.predict_proba(X1)[:, 1]
-            df["Predicción Óptima 1"] = (df["Probabilidad Estimada 1"] >= threshold1).astype(int)
-        except Exception as e:
-            st.error(f"Fallo Modelo 1: {str(e)}")
-            return None
-
-        # 3. Predicción con Modelo 2 (solo si Modelo 1 detecta riesgo)
-        # -----------------------------------------------------------
-        if df["Predicción Óptima 1"].iloc[0] == 1:
-            modelo2 = cargar_modelo2()
-            try:
-                X2 = df[COLUMNAS_MODELO].astype(float)
-                proba2 = modelo2.predict_proba(X2)[:, 1]
-                
-                # Validar probabilidades
-                if np.isnan(proba2).any():
-                    raise ValueError("Probabilidad contiene NaN")
-                
-                df["Probabilidad Estimada 2"] = proba2
-                df["Predicción Óptima 2"] = (df["Probabilidad Estimada 2"] >= threshold2).astype(int)
-            except Exception as e:
-                st.warning(f"Fallo Modelo 2: {str(e)} - Se mantienen resultados del Modelo 1")
-                df["Probabilidad Estimada 2"] = None
-                df["Predicción Óptima 2"] = None
-
-        return df
-
-    except Exception as e:
-        st.error(f"Error crítico en predicción: {str(e)}")
-        return None
-
+def ejecutar_prediccion():
+    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
+    df = pd.DataFrame(sheet.get_all_records())
+    if df.empty:
+        st.warning("No hay datos suficientes para predecir.")
+        return
+    faltantes = [col for col in COLUMNAS_MODELO if col not in df.columns]
+    if faltantes:
+        st.error(f"Faltan columnas: {faltantes}")
+        return
+    X = df.iloc[[-1]][COLUMNAS_MODELO].replace("", -1)
+    modelo = cargar_modelo2()
+    proba = modelo.predict_proba(X)[0, 1]
+    pred = int(proba >= 0.21)
+    mostrar_resultado_prediccion(proba, pred)
+    
 def mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=None):
     """
     Muestra el resultado de la predicción sin porcentajes y con la lógica corregida para determinar el modelo usado.
@@ -691,22 +705,6 @@ def mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=None)
         leer_en_voz(texto_a_leer)
 
     return diagnostico
-
-def ejecutar_prediccion():
-    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
-    df = pd.DataFrame(sheet.get_all_records())
-    if df.empty:
-        st.warning("No hay datos suficientes para predecir.")
-        return
-    faltantes = [col for col in COLUMNAS_MODELO if col not in df.columns]
-    if faltantes:
-        st.error(f"Faltan columnas: {faltantes}")
-        return
-    X = df.iloc[[-1]][COLUMNAS_MODELO].replace("", -1)
-    modelo = cargar_modelo2()
-    proba = modelo.predict_proba(X)[0, 1]
-    pred = int(proba >= 0.21)
-    mostrar_resultado_prediccion(proba, pred)
 
 def mostrar_pacientes():
     st.title("📋 Participante")
