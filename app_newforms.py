@@ -32,7 +32,6 @@ RUTA_MODELO1 = "1_modelo.pkl"
 RUTA_MODELO2 = "2_modelo.pkl"
 
 # API PLACE MAPA
-
 @st.cache_resource
 def cargar_modelo1():
     return joblib.load(RUTA_MODELO1)
@@ -69,7 +68,6 @@ def cargar_css(path):
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 def conectar_google_sheet(nombre=None, key=None, debug=False):
-
     try:
         # Validar credenciales
         if "gcp_service_account" not in st.secrets:
