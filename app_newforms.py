@@ -562,17 +562,7 @@ def guardar_respuesta_paciente(fila_dict):
     return False
     
 def mostrar_resultado_prediccion(pred: int, modelo_usado: int, variables_importantes: list = None) -> str:
-    """
-    Muestra el resultado del diagnóstico en función del modelo y la predicción.
 
-    Args:
-        pred (int): 0 o 1. Resultado binario de la predicción.
-        modelo_usado (int): 1 (modelo inicial) o 2 (modelo más avanzado).
-        variables_importantes (list): Lista de tuplas (variable, valor) más influyentes. Opcional.
-
-    Returns:
-        str: Diagnóstico textual ("Sano", "En Riesgo", "Prediabético" o "Diabético").
-    """
     try:
         # Validación básica
         pred = int(round(pred))  # Asegurar que sea 0 o 1
