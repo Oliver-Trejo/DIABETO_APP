@@ -334,7 +334,7 @@ def guardar_respuesta_paciente(fila_dict):
     sheet.append_row(nueva_fila)
 
 
-def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
+def mostrar_resultado_prediccion(fila: dict, variables_importantes=None, etiquetas=None, valores_a_texto=None):
     def safe_float(val, default=0.0):
         try:
             return float(val)
@@ -389,21 +389,24 @@ def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
         </div>
     """, unsafe_allow_html=True)
 
-    # Texto para lectura en voz
     texto_a_leer = f"{mensaje} Tu probabilidad estimada es del {probabilidad:.0%}. "
 
-    # Variables importantes
+    # Mostrar variables relevantes con etiquetas y valores legibles
     if variables_importantes:
         st.markdown("#### 🔍 Factores más relevantes en esta evaluación:")
         texto_a_leer += "Factores relevantes considerados fueron: "
+
         for var, val in variables_importantes:
-            st.markdown(f"- **{var}**: {val}")
-            texto_a_leer += f"{var}, "
+            etiqueta = etiquetas.get(var, var) if etiquetas else var
+            texto_valor = valores_a_texto.get(var, {}).get(str(val), str(val)) if valores_a_texto else str(val)
+            st.markdown(f"- **{etiqueta}**: {texto_valor}")
+            texto_a_leer += f"{etiqueta}, "
 
     if st.session_state.get("voz_activa", False):
         leer_en_voz(texto_a_leer.strip())
 
     return diagnostico
+
 
 def ejecutar_prediccion():
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
@@ -570,7 +573,7 @@ def mostrar_pacientes():
             X = df_modelo[COLUMNAS_MODELO].apply(pd.to_numeric, errors="coerce").fillna(-1)
 
             variables_relevantes = obtener_variables_importantes(modelo, X)
-            mostrar_resultado_prediccion(registro, variables_relevantes)
+            mostrar_resultado_prediccion(registro, variables_relevantes, etiquetas, valores_a_texto)
 
         except Exception as e:
             st.warning(f"Error al generar diagnóstico: {e}")
