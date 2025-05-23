@@ -25,12 +25,17 @@ COLUMNAS_MODELO = ["sexo", "edad", "a0201", "a0206", "a0601",
 
 # Importación de modelo
 RUTA_MODELO1 = "1_modelo.pkl"
+RUTA_MODELO2 = "2_modelo.pkl"
 
 # API PLACE MAPA
 
 @st.cache_resource
 def cargar_modelo1():
     return joblib.load(RUTA_MODELO1)
+
+@st.cache_resource
+def cargar_modelo2():
+    return joblib.load(RUTA_MODELO2)
 
 # --- FUNCIONES AUXILIARES ---
 def leer_en_voz(texto: str):
@@ -391,77 +396,76 @@ def mostrar_pacientes():
             st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
 
 
-def predecir_nuevos_registros(df_input, threshold=0.18):
-    modelo = cargar_modelo1()
-
-    # ✅ Asegurar que todas las columnas requeridas estén en el DataFrame
-    for col in COLUMNAS_MODELO:
-        if col not in df_input.columns:
-            df_input[col] = -1  # Valor por defecto para columnas faltantes
-
-    # 🔄 Reemplazar vacíos y convertir a tipo numérico
+def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
+    modelo1 = cargar_modelo1()
     X = df_input[COLUMNAS_MODELO].replace("", -1).astype(float)
+    df_input["Probabilidad Estimada 1"] = modelo1.predict_proba(X)[:, 1]
+    df_input["Predicción Óptima 1"] = (df_input["Probabilidad Estimada 1"] >= threshold1).astype(int)
 
-    # 📈 Calcular predicción
-    df_input['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
-    df_input['Predicción Óptima'] = (df_input['Probabilidad Estimada'] >= threshold).astype(int)
+    if df_input["Predicción Óptima 1"].iloc[0] == 1:
+        modelo2 = cargar_modelo2()
+        df_input["Probabilidad Estimada 2"] = modelo2.predict_proba(X)[:, 1]
+        df_input["Predicción Óptima 2"] = (df_input["Probabilidad Estimada 2"] >= threshold2).astype(int)
+    else:
+        df_input["Probabilidad Estimada 2"] = None
+        df_input["Predicción Óptima 2"] = None
 
     return df_input
 
-def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
+def guardar_respuesta_paciente(fila_dict):
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     encabezados = sheet.row_values(1)
 
-    # Agregar columnas obligatorias
-    fila_dict["Probabilidad Estimada"] = float(proba)
-    fila_dict["Predicción Óptima"] = int(pred)
     fila_dict["Registrado por"] = st.session_state.get("usuario", "Desconocido")
 
-    # Detectar columnas nuevas
     nuevos = [k for k in fila_dict.keys() if k not in encabezados]
     if nuevos:
         encabezados += nuevos
-        # Actualizar encabezado completo (toda la fila 1)
-        sheet.update('A1', [encabezados])
+        sheet.delete_row(1)
+        sheet.insert_row(encabezados, 1)
 
-    # Crear fila nueva alineada a encabezados
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
     sheet.append_row(nueva_fila)
 
 
-
-def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
-    color = "#FFA500" if pred == 1 else "#4CAF50"
-    emoji = "⚠️" if pred == 1 else "✅"
-    titulo = (
-        "Es importante que visites un centro de salud. Tus respuestas se parecen a las de personas con diabetes tipo 2."
-        if pred == 1
-        else "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
-    )
+def mostrar_resultado_prediccion(df_fila, variables_importantes=None):
+    pred1 = int(df_fila["Predicción Óptima 1"])
+    pred2 = df_fila.get("Predicción Óptima 2")
+    
+    if pred1 == 0:
+        diagnostico = "Sano"
+        color, emoji = "#4CAF50", "✅"
+        mensaje = "¡Buenas noticias! No encontramos señales claras de diabetes. Sigue cuidando tu salud."
+    else:
+        if pred2 is None:
+            diagnostico = "Riesgo sin evaluación"
+            color, emoji = "#FFC107", "⚠️"
+            mensaje = "Hay señales de riesgo, pero no se completó la evaluación avanzada."
+        elif int(pred2) == 0:
+            diagnostico = "Prediabético"
+            color, emoji = "#FFA500", "🟠"
+            mensaje = "Tus respuestas indican señales compatibles con una condición prediabética. Te recomendamos consultar a un especialista."
+        else:
+            diagnostico = "Diabético"
+            color, emoji = "#FF0000", "🚨"
+            mensaje = "Tus respuestas indican señales compatibles con diabetes tipo 2. Es importante que acudas a un centro de salud lo antes posible."
 
     st.markdown(f"""
-        <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; border-left: 5px solid {color};'>
-            <h3 style='color:{color};'>{emoji} {titulo}</h3>
-            <p style='font-weight:bold;'>Tu perfil coincide con personas que tienen diabetes en un: {proba:.2%}</p>
+        <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; 
+                    border-left: 5px solid {color}; margin-bottom:20px;'>
+            <h3 style='color:{color}; margin-top:0;'>{emoji} Diagnóstico: {diagnostico}</h3>
+            <p style='margin-bottom:0;'>{mensaje}</p>
         </div>
     """, unsafe_allow_html=True)
 
-    texto_a_leer = ""
     if st.session_state.get("voz_activa", False):
-        texto_a_leer += f"{titulo}. "
-        texto_a_leer += f"Tu perfil coincide con personas con diabetes en un {proba:.0f} por ciento. "
+        leer_en_voz(mensaje)
 
-    if pred == 1 and variables_importantes:
-        st.markdown("#### 🔍 Las siguientes respuestas fueron importantes para este resultado:")
-        if st.session_state.get("voz_activa", False):
-            texto_a_leer += "Las siguientes respuestas fueron importantes para este resultado. "
-
+    if variables_importantes:
+        st.markdown("#### 🔍 Factores más relevantes:")
         for var, val in variables_importantes:
             st.markdown(f"- **{var}**: {val}")
-            if st.session_state.get("voz_activa", False):
-                texto_a_leer += f"{var}: {val}. "
 
-    return texto_a_leer
 
 def ejecutar_prediccion():
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
@@ -485,15 +489,11 @@ def nuevo_registro():
     if st.session_state.get("voz_activa", False):
         leer_en_voz("Estás en la sección de registro de pacientes. Por favor responde las siguientes preguntas.")
 
-    # ✅ Cargar preguntas del formulario
+    # Cargar preguntas del formulario
     with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
         secciones = json.load(f)
 
     respuestas = {}
-
-    if st.session_state.get("mostrar_prediccion"):
-        ejecutar_prediccion()
-        st.session_state["mostrar_prediccion"] = False
 
     key_form = "formulario_registro_" + st.session_state.get("usuario", str(uuid.uuid4()))
 
@@ -521,24 +521,30 @@ def nuevo_registro():
                     respuestas[codigo] = render_pregunta(p, key=codigo)
 
         if st.form_submit_button("Guardar"):
-
-            # 🔹 Hacer predicción
             df_modelo = pd.DataFrame([respuestas])
             resultado = predecir_nuevos_registros(df_modelo)
-            proba = resultado["Probabilidad Estimada"].iloc[0]
-            pred = resultado["Predicción Óptima"].iloc[0]
 
-            # 🔹 Guardar paciente
-            guardar_respuesta_paciente(respuestas, proba, pred)
+            fila_final = resultado.iloc[0].to_dict()
+            pred1 = int(fila_final["Predicción Óptima 1"])
 
+            # Elegir modelo para mostrar variables importantes
+            if pred1 == 1 and not pd.isna(fila_final["Predicción Óptima 2"]):
+                modelo = cargar_modelo2()
+            else:
+                modelo = cargar_modelo1()
+
+            variables_relevantes = obtener_variables_importantes(modelo, resultado)
+
+            # Guardar en Sheets
+            guardar_respuesta_paciente(fila_final)
+
+            # Mostrar resultado
             st.success("✅ Registro guardado correctamente.")
             if st.session_state.get("voz_activa", False):
                 leer_en_voz("Registro guardado correctamente. Mostrando resultados.")
-            st.session_state["mostrar_prediccion"] = True
-            modelo = cargar_modelo1()
-            variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
-            mostrar_resultado_prediccion(proba, pred, variables_relevantes)
+            mostrar_resultado_prediccion(fila_final, variables_relevantes)
             st.rerun()
+
 
 def main():
     if "logged_in" not in st.session_state:
