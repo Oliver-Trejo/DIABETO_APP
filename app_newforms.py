@@ -236,8 +236,31 @@ def generar_pdf(respuestas_completas, variables_relevantes):
     buffer.seek(0)
     return buffer
 
-def obtener_hoja_usuarios():
-    return conectar_google_sheet(key=st.secrets["google_sheets"]["usuarios_key"])
+def obtener_hoja_usuarios(debug=False):
+    """
+    Devuelve la hoja de cálculo de usuarios conectada por clave.
+
+    Args:
+        debug (bool): Si es True, muestra detalles del proceso en Streamlit.
+
+    Returns:
+        gspread.Worksheet: Objeto de hoja de cálculo, o None si falla.
+    """
+    try:
+        key = st.secrets["google_sheets"]["usuarios_key"]
+        hoja = conectar_google_sheet(key=key, debug=debug)
+
+        if debug:
+            st.success(f"✅ Hoja de usuarios conectada: {hoja.title}")
+
+        return hoja
+
+    except KeyError:
+        st.error("❌ No se encontró 'usuarios_key' en st.secrets['google_sheets']")
+        return None
+    except Exception as e:
+        st.error(f"❌ Error al conectar con la hoja de usuarios: {str(e)}")
+        return None
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
