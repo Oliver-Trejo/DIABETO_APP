@@ -334,57 +334,76 @@ def guardar_respuesta_paciente(fila_dict):
     sheet.append_row(nueva_fila)
 
 
-def mostrar_resultado_prediccion(pred, modelo_usado=1, variables_importantes=None):
+def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
+    def safe_float(val, default=0.0):
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
+
     try:
-        pred = int(round(pred))
+        pred1 = int(fila.get("Predicción Óptima 1", 0))
+        prob1 = safe_float(fila.get("Probabilidad Estimada 1"))
+        pred2 = fila.get("Predicción Óptima 2", None)
+        prob2 = fila.get("Probabilidad Estimada 2", None)
 
-        if modelo_usado == 2:
-            diagnostico = "Prediabético" if pred == 0 else "Diabético"
-            color = "#FFA500" if pred == 0 else "#FF0000"
-            emoji = "🟠" if pred == 0 else "🚨"
-            mensaje = (
-                "Tus respuestas indican señales compatibles con una condición prediabética. "
-                "Te recomendamos consultar a un especialista."
-                if pred == 0 else
-                "Tus respuestas indican señales compatibles con diabetes tipo 2. "
-                "Es importante que acudas a un centro de salud lo antes posible."
-            )
+        if pred1 == 0:
+            diagnostico = "Sano"
+            probabilidad = prob1
+            color = "#4CAF50"
+            emoji = "✅"
+            mensaje = "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
+        elif pred1 == 1 and str(pred2) == "0":
+            diagnostico = "Prediabético"
+            probabilidad = safe_float(prob2)
+            color = "#FFA500"
+            emoji = "🟠"
+            mensaje = "Tus respuestas indican señales compatibles con una condición prediabética. Te recomendamos consultar a un especialista."
+        elif pred1 == 1 and str(pred2) == "1":
+            diagnostico = "Diabético"
+            probabilidad = safe_float(prob2)
+            color = "#FF0000"
+            emoji = "🚨"
+            mensaje = "Tus respuestas indican señales compatibles con diabetes tipo 2. Es importante que acudas a un centro de salud lo antes posible."
         else:
-            diagnostico = "Sano" if pred == 0 else "En Riesgo"
-            color = "#4CAF50" if pred == 0 else "#FFA500"
-            emoji = "✅" if pred == 0 else "⚠️"
-            mensaje = (
-                "¡Buenas noticias! No encontramos señales claras de diabetes. "
-                "Sigue cuidando tu salud." if pred == 0 else
-                "Tus respuestas muestran factores de riesgo. "
-                "Te sugerimos una evaluación más detallada."
-            )
-
-        st.markdown(f"""
-            <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; 
-                        border-left: 5px solid {color}; margin-bottom:20px;'>
-                <h3 style='color:{color}; margin-top:0;'>{emoji} Diagnóstico: {diagnostico}</h3>
-                <p style='margin-bottom:0;'>{mensaje}</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        texto_a_leer = mensaje
-        if pred == 1 and variables_importantes:
-            st.markdown("#### 🔍 Factores más relevantes en esta evaluación:")
-            texto_a_leer += " Los factores más relevantes fueron: "
-            for var, val in variables_importantes:
-                st.markdown(f"- **{var}**: {val}")
-                texto_a_leer += f"{var}, "
-
-        if st.session_state.get("voz_activa", False):
-            leer_en_voz(texto_a_leer.strip())
-
-        return diagnostico
+            diagnostico = "Diagnóstico no disponible"
+            probabilidad = 0
+            color = "#999999"
+            emoji = "❓"
+            mensaje = "No se pudo determinar el diagnóstico con la información proporcionada."
 
     except Exception as e:
-        st.error(f"❌ Error al mostrar el diagnóstico: {str(e)}")
-        return "Diagnóstico no disponible"
+        diagnostico = "Diagnóstico no disponible"
+        probabilidad = 0
+        color = "#999999"
+        emoji = "❗"
+        mensaje = f"Error al procesar los resultados: {e}"
 
+    # Visual
+    st.markdown(f"""
+        <div style='background-color:#f0f2f6; padding:20px; border-radius:10px;
+                    border-left: 5px solid {color}; margin-bottom:20px;'>
+            <h3 style='color:{color}; margin-top:0;'>{emoji} Diagnóstico: {diagnostico}</h3>
+            <p style='margin-bottom:0;'>{mensaje}</p>
+            <p style='font-weight:bold;'>Probabilidad estimada: {probabilidad:.2%}</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Texto para lectura en voz
+    texto_a_leer = f"{mensaje} Tu probabilidad estimada es del {probabilidad:.0%}. "
+
+    # Variables importantes
+    if variables_importantes:
+        st.markdown("#### 🔍 Factores más relevantes en esta evaluación:")
+        texto_a_leer += "Factores relevantes considerados fueron: "
+        for var, val in variables_importantes:
+            st.markdown(f"- **{var}**: {val}")
+            texto_a_leer += f"{var}, "
+
+    if st.session_state.get("voz_activa", False):
+        leer_en_voz(texto_a_leer.strip())
+
+    return diagnostico
 
 def ejecutar_prediccion():
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
@@ -551,7 +570,7 @@ def mostrar_pacientes():
             X = df_modelo[COLUMNAS_MODELO].apply(pd.to_numeric, errors="coerce").fillna(-1)
 
             variables_relevantes = obtener_variables_importantes(modelo, X)
-            mostrar_resultado_prediccion(pred, modelo_usado, variables_relevantes)
+            mostrar_resultado_prediccion(registro, variables_relevantes)
 
         except Exception as e:
             st.warning(f"Error al generar diagnóstico: {e}")
