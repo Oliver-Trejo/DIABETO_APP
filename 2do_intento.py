@@ -578,6 +578,12 @@ def mostrar_pacientes():
         except Exception as e:
             st.warning(f"Error al generar diagnóstico: {e}")
 
+        st.set_page_config(page_title="Ubicación GPS", layout="centered")
+        st.title("📍 Obtener ubicación con un clic")
+
+        # Botón para obtener la ubicación
+        location = streamlit_geolocation()
+
         # Mostrar respuestas
         st.markdown("### ✍️ Respuestas registradas")
         for campo, valor in registro.items():
