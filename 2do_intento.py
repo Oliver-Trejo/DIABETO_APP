@@ -332,6 +332,31 @@ def mostrar_pacientes():
         diagnostico = f"Error al interpretar resultados: {e}"
 
     st.markdown(f"### 🩺 Resultado del diagnóstico: {diagnostico}")
+
+    # Mostrar variables importantes
+    try:
+        df_modelo = pd.DataFrame([{k: v for k, v in registro.items() if k in COLUMNAS_MODELO}])
+
+        # Procesar tipo de datos
+        if df_modelo["sexo"].iloc[0] not in [1, 2]:
+            df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2}).fillna(-1)
+
+        X = df_modelo[COLUMNAS_MODELO].apply(pd.to_numeric, errors="coerce").fillna(-1)
+        variables_importantes = obtener_variables_importantes(modelo, X)
+
+        if variables_importantes:
+            st.markdown("### 🔍 Factores más relevantes en esta evaluación:")
+            for var, val in variables_importantes:
+                label = etiquetas.get(var, var)
+                val_str = str(val).strip()
+                if var in valores_a_texto:
+                    val_str = valores_a_texto[var].get(val_str, val_str)
+                st.markdown(f"- **{label}:** {val_str}")
+
+    except Exception as e:
+        st.warning(f"No se pudieron calcular los factores importantes: {e}")
+    
+    # Mostrar respuestas
     st.markdown("### ✍🏽 Respuestas registradas")
 
     # --- Mapeo profundo ---
