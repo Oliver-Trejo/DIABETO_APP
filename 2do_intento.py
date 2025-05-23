@@ -260,98 +260,6 @@ def mostrar_perfil():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-def mostrar_pacientes():
-    st.title("📋 Participante")
-
-    if st.session_state.get("voz_activa", False):
-        leer_en_voz("Estás en la sección de participantes. Aquí puedes consultar los registros guardados.")
-
-    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
-    df = pd.DataFrame(sheet.get_all_records())
-    usuario = st.session_state.get("usuario", "").strip().lower()
-    df = df[df["Registrado por"].str.strip().str.lower() == usuario]
-
-    if df.empty:
-        st.info("Todavía no tienes registros.")
-        return
-
-    df["ID"] = ["Registro #" + str(i + 1) for i in df.index]
-    seleccionado = st.selectbox("Selecciona un registro:", ["Selecciona"] + df["ID"].tolist())
-
-    if seleccionado == "Selecciona":
-        return
-
-    registro = df[df["ID"] == seleccionado].iloc[0]
-    st.subheader(f"🧾 {seleccionado}")
-    prob1 = registro.get("Probabilidad Estimada 1", "")
-    pred1 = registro.get("Predicción Óptima 1", "")
-    prob2 = registro.get("Probabilidad Estimada 2", "")
-    pred2 = registro.get("Predicción Óptima 2", "")
-
-    try:
-        if str(pred1) == "0":
-            diagnostico = f"Sano (Modelo 1 - {float(prob1):.2%})"
-        elif str(pred2) == "0":
-            diagnostico = f"Prediabético (Modelo 2 - {float(prob2):.2%})"
-        elif str(pred2) == "1":
-            diagnostico = f"Diabético (Modelo 2 - {float(prob2):.2%})"
-        else:
-            diagnostico = "Diagnóstico no disponible"
-    except Exception as e:
-        diagnostico = f"Error al interpretar resultados: {e}"
-
-    st.markdown(f"### 🩺 Resultado del diagnóstico: {diagnostico}")
-    st.markdown("### ✍🏽 Respuestas registradas")
-
-    # --- Mapeo profundo ---
-    etiquetas = {}
-    valores_a_texto = {}
-
-    try:
-        with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
-            preguntas_json = json.load(f)
-
-        def extraer_mapeo(data):
-            if isinstance(data, dict):
-                for v in data.values():
-                    extraer_mapeo(v)
-            elif isinstance(data, list):
-                for item in data:
-                    if isinstance(item, dict) and "codigo" in item:
-                        codigo = item["codigo"]
-                        etiquetas[codigo] = item.get("label", codigo)
-                        # Mapeo de valores
-                        if "valores" in item and "opciones" in item:
-                            valores_a_texto[codigo] = {
-                                str(val): texto for val, texto in zip(item["valores"], item["opciones"])
-                            }
-
-        extraer_mapeo(preguntas_json)
-
-    except Exception as e:
-        st.warning(f"No se pudo cargar etiquetas ni valores desde el JSON: {e}")
-
-    # Mostrar respuestas traducidas
-    for campo, valor in registro.items():
-        if campo in ["Registrado por", "ID"] or pd.isna(valor):
-            continue
-
-        label = etiquetas.get(campo, campo)
-        valor_str = str(valor).strip()  # Normaliza valor
-        texto_valor = valor_str
-
-        # Traducir según mapeo del JSON si existe
-        if campo in valores_a_texto:
-            texto_valor = valores_a_texto[campo].get(valor_str, valor_str)
-
-        elif campo == "sexo":
-            texto_valor = "Hombre" if valor_str in ["1", "Hombre"] else "Mujer" if valor_str in ["2", "Mujer"] else valor_str
-
-        elif campo.startswith("Predicción") or campo.startswith("Probabilidad"):
-            continue  # Estos ya fueron mostrados en el resumen
-
-        st.markdown(f"**{label}:** {texto_valor}")
-
 def predecir_nuevos_registros(df_input, threshold1=0.33, threshold2=0.49):
     modelo1 = cargar_modelo1()
 
@@ -549,6 +457,98 @@ def nuevo_registro():
                 leer_en_voz("Registro guardado correctamente. Mostrando resultados.")
             mostrar_resultado_prediccion(fila_final)
             st.rerun()
+
+def mostrar_pacientes():
+    st.title("📋 Participante")
+
+    if st.session_state.get("voz_activa", False):
+        leer_en_voz("Estás en la sección de participantes. Aquí puedes consultar los registros guardados.")
+
+    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
+    df = pd.DataFrame(sheet.get_all_records())
+    usuario = st.session_state.get("usuario", "").strip().lower()
+    df = df[df["Registrado por"].str.strip().str.lower() == usuario]
+
+    if df.empty:
+        st.info("Todavía no tienes registros.")
+        return
+
+    df["ID"] = ["Registro #" + str(i + 1) for i in df.index]
+    seleccionado = st.selectbox("Selecciona un registro:", ["Selecciona"] + df["ID"].tolist())
+
+    if seleccionado == "Selecciona":
+        return
+
+    registro = df[df["ID"] == seleccionado].iloc[0]
+    st.subheader(f"🧾 {seleccionado}")
+    prob1 = registro.get("Probabilidad Estimada 1", "")
+    pred1 = registro.get("Predicción Óptima 1", "")
+    prob2 = registro.get("Probabilidad Estimada 2", "")
+    pred2 = registro.get("Predicción Óptima 2", "")
+
+    try:
+        if str(pred1) == "0":
+            diagnostico = f"Sano (Modelo 1 - {float(prob1):.2%})"
+        elif str(pred2) == "0":
+            diagnostico = f"Prediabético (Modelo 2 - {float(prob2):.2%})"
+        elif str(pred2) == "1":
+            diagnostico = f"Diabético (Modelo 2 - {float(prob2):.2%})"
+        else:
+            diagnostico = "Diagnóstico no disponible"
+    except Exception as e:
+        diagnostico = f"Error al interpretar resultados: {e}"
+
+    st.markdown(f"### 🩺 Resultado del diagnóstico: {diagnostico}")
+    st.markdown("### ✍🏽 Respuestas registradas")
+
+    # --- Mapeo profundo ---
+    etiquetas = {}
+    valores_a_texto = {}
+
+    try:
+        with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
+            preguntas_json = json.load(f)
+
+        def extraer_mapeo(data):
+            if isinstance(data, dict):
+                for v in data.values():
+                    extraer_mapeo(v)
+            elif isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and "codigo" in item:
+                        codigo = item["codigo"]
+                        etiquetas[codigo] = item.get("label", codigo)
+                        # Mapeo de valores
+                        if "valores" in item and "opciones" in item:
+                            valores_a_texto[codigo] = {
+                                str(val): texto for val, texto in zip(item["valores"], item["opciones"])
+                            }
+
+        extraer_mapeo(preguntas_json)
+
+    except Exception as e:
+        st.warning(f"No se pudo cargar etiquetas ni valores desde el JSON: {e}")
+
+    # Mostrar respuestas traducidas
+    for campo, valor in registro.items():
+        if campo in ["Registrado por", "ID"] or pd.isna(valor):
+            continue
+
+        label = etiquetas.get(campo, campo)
+        valor_str = str(valor).strip()  # Normaliza valor
+        texto_valor = valor_str
+
+        # Traducir según mapeo del JSON si existe
+        if campo in valores_a_texto:
+            texto_valor = valores_a_texto[campo].get(valor_str, valor_str)
+
+        elif campo == "sexo":
+            texto_valor = "Hombre" if valor_str in ["1", "Hombre"] else "Mujer" if valor_str in ["2", "Mujer"] else valor_str
+
+        elif campo.startswith("Predicción") or campo.startswith("Probabilidad"):
+            continue  # Estos ya fueron mostrados en el resumen
+
+        st.markdown(f"**{label}:** {texto_valor}")
 
 def main():
     if "logged_in" not in st.session_state:
