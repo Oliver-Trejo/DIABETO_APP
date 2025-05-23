@@ -334,32 +334,36 @@ def mostrar_pacientes():
     st.markdown(f"### 🩺 Resultado del diagnóstico: {diagnostico}")
     st.markdown("### ✍🏽 Respuestas registradas")
 
-    # --- Mapear etiquetas desde preguntas2.json ---
+    # --- Mapeo profundo de etiquetas desde JSON ---
+    etiquetas = {}
+
     try:
         with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
-            preguntas = json.load(f)
+            preguntas_json = json.load(f)
 
-        etiquetas = {}
-        for seccion in preguntas.values():
-            if isinstance(seccion, list):
-                for p in seccion:
-                    if "codigo" in p and "label" in p:
-                        etiquetas[p["codigo"]] = p["label"]
-            elif isinstance(seccion, dict):
-                for grupo in seccion.values():
-                    for p in grupo:
-                        if "codigo" in p and "label" in p:
-                            etiquetas[p["codigo"]] = p["label"]
+        def extraer_codigos(data):
+            if isinstance(data, dict):
+                for v in data.values():
+                    extraer_codigos(v)
+            elif isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and "codigo" in item and "label" in item:
+                        etiquetas[item["codigo"]] = item["label"]
+            else:
+                pass
+
+        extraer_codigos(preguntas_json)
+
     except Exception as e:
-        etiquetas = {}
-        st.warning(f"No se pudieron cargar etiquetas desde JSON: {e}")
+        st.warning(f"No se pudo cargar etiquetas desde el JSON: {e}")
 
-    # Mostrar respuestas usando etiquetas si están disponibles
-    for k, v in registro.items():
-        if k in ["Registrado por", "ID"]:
+    # Mostrar respuestas traducidas
+    for campo, valor in registro.items():
+        if campo in ["Registrado por", "ID"] or pd.isna(valor):
             continue
-        etiqueta = etiquetas.get(k, k)
-        st.markdown(f"**{etiqueta}:** {v}")
+        label = etiquetas.get(campo, campo)
+        st.markdown(f"**{label}:** {valor}")
+
 
 def predecir_nuevos_registros(df_input, threshold1=0.33, threshold2=0.49):
     modelo1 = cargar_modelo1()
