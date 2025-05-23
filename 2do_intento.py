@@ -404,31 +404,26 @@ def predecir_nuevos_registros(df_input, threshold=0.18):
 
     return df_input
 
-
 def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     encabezados = sheet.row_values(1)
 
-    # Agregar info de predicción y usuario
+    # Agregar columnas obligatorias
     fila_dict["Probabilidad Estimada"] = float(proba)
     fila_dict["Predicción Óptima"] = int(pred)
     fila_dict["Registrado por"] = st.session_state.get("usuario", "Desconocido")
 
     # Detectar columnas nuevas
     nuevos = [k for k in fila_dict.keys() if k not in encabezados]
-
-    # Si hay columnas nuevas, actualiza solo esas celdas en la fila 1 (encabezados)
     if nuevos:
-        for i, nueva_col in enumerate(nuevos):
-            col_idx = len(encabezados) + i + 1  # 1-based indexing
-            sheet.update_cell(1, col_idx, nueva_col)
         encabezados += nuevos
+        # Actualizar encabezado completo (toda la fila 1)
+        sheet.update('A1', [encabezados])
 
-    # Construir fila alineada a encabezados
+    # Crear fila nueva alineada a encabezados
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
-
-    # Agregar fila
     sheet.append_row(nueva_fila)
+
 
 
 def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
