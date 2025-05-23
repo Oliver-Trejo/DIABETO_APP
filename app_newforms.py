@@ -682,7 +682,7 @@ def nuevo_registro():
             if isinstance(contenido, dict):  # Antecedentes familiares
                 for familiar, grupo in contenido.items():
                     with st.expander(f"Antecedentes familiares: {familiar}"):
-                        for p in contenido:
+                        for p in grupo:
                             if not isinstance(p, dict):
                                 st.warning(f"⚠️ Entrada inválida en sección {titulo}: {p}")
                                 continue
