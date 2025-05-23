@@ -75,7 +75,6 @@ def conectar_google_sheet(nombre=None, key=None):
 
     return client.open_by_key(key).sheet1 if key else client.open(nombre).sheet1
 
-
 def render_pregunta(pregunta, key):
     tipo = pregunta.get("tipo", "text")
     label = pregunta.get("label", "Pregunta sin título")
@@ -122,7 +121,6 @@ def obtener_variables_importantes(modelo, datos):
             break
 
     return variables_relevantes
-
 
 def generar_pdf(respuestas_completas, variables_relevantes):
     pdf = FPDF()
@@ -293,7 +291,6 @@ def mostrar_perfil():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-
 def mostrar_pacientes():
     st.title("📋 Participante")
 
@@ -336,12 +333,33 @@ def mostrar_pacientes():
 
     st.markdown(f"### 🩺 Resultado del diagnóstico: {diagnostico}")
     st.markdown("### ✍🏽 Respuestas registradas")
+
+    # --- Mapear etiquetas desde preguntas2.json ---
+    try:
+        with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
+            preguntas = json.load(f)
+
+        etiquetas = {}
+        for seccion in preguntas.values():
+            if isinstance(seccion, list):
+                for p in seccion:
+                    if "codigo" in p and "label" in p:
+                        etiquetas[p["codigo"]] = p["label"]
+            elif isinstance(seccion, dict):
+                for grupo in seccion.values():
+                    for p in grupo:
+                        if "codigo" in p and "label" in p:
+                            etiquetas[p["codigo"]] = p["label"]
+    except Exception as e:
+        etiquetas = {}
+        st.warning(f"No se pudieron cargar etiquetas desde JSON: {e}")
+
+    # Mostrar respuestas usando etiquetas si están disponibles
     for k, v in registro.items():
-        if k not in ["Registrado por", "ID"]:
-            st.markdown(f"**{k}:** {v}")
-
-
-
+        if k in ["Registrado por", "ID"]:
+            continue
+        etiqueta = etiquetas.get(k, k)
+        st.markdown(f"**{etiqueta}:** {v}")
 
 def predecir_nuevos_registros(df_input, threshold1=0.33, threshold2=0.49):
     modelo1 = cargar_modelo1()
