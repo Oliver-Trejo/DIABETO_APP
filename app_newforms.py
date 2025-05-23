@@ -558,6 +558,79 @@ def guardar_respuesta_paciente(fila_dict):
 
     return False
 
+def ejecutar_prediccion():
+    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
+    df = pd.DataFrame(sheet.get_all_records())
+    if df.empty:
+        st.warning("No hay datos suficientes para predecir.")
+        return
+    faltantes = [col for col in COLUMNAS_MODELO if col not in df.columns]
+    if faltantes:
+        st.error(f"Faltan columnas: {faltantes}")
+        return
+    X = df.iloc[[-1]][COLUMNAS_MODELO].replace("", -1)
+    modelo = cargar_modelo2()
+    proba = modelo.predict_proba(X)[0, 1]
+    pred = int(proba >= 0.21)
+    mostrar_resultado_prediccion(proba, pred)
+    
+def mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=None):
+    """
+    Muestra el resultado de la predicción sin porcentajes y con la lógica corregida para determinar el modelo usado.
+    
+    Args:
+        pred (int): Predicción (0 o 1)
+        modelo_usado (int): 1 para modelo inicial, 2 para modelo secundario
+        variables_importantes (list): Lista de tuplas con variables relevantes
+    """
+    # Determinar diagnóstico según el modelo usado
+    if modelo_usado == 2:
+        diagnostico = "Prediabético" if pred == 0 else "Diabético"
+        color = "#FFA500" if pred == 0 else "#FF0000"  # Naranja para prediabetes, rojo para diabetes
+        emoji = "🟠" if pred == 0 else "🚨"
+        mensaje = (
+            "Tus respuestas indican señales compatibles con una condición prediabética. "
+            "Te recomendamos consultar a un especialista para una evaluación más detallada."
+            if pred == 0 else
+            "Tus respuestas indican señales compatibles con diabetes tipo 2. "
+            "Es importante que acudas a un centro de salud para una evaluación médica."
+        )
+    else:
+        diagnostico = "Sano" if pred == 0 else "En Riesgo"
+        color = "#4CAF50" if pred == 0 else "#FFA500"  # Verde para sano, naranja para riesgo
+        emoji = "✅" if pred == 0 else "⚠️"
+        mensaje = (
+            "¡Buenas noticias! No encontramos señales claras de diabetes. "
+            "Mantén hábitos saludables para prevenir."
+            if pred == 0 else
+            "Tus respuestas muestran factores de riesgo. Continuaremos con una evaluación más detallada."
+        )
+
+    # Mostrar resultado en la interfaz
+    st.markdown(f"""
+        <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; border-left: 5px solid {color}; margin-bottom:20px;'>
+            <h3 style='color:{color}; margin-top:0;'>{emoji} Diagnóstico: {diagnostico}</h3>
+            <p style='margin-bottom:0;'>{mensaje}</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Mostrar variables importantes si es relevante
+    texto_a_leer = mensaje
+    if pred == 1 and variables_importantes:
+        st.markdown("#### 🔍 Factores más relevantes en esta evaluación:")
+        texto_a_leer += " Los factores más relevantes fueron: "
+        
+        for var, val in variables_importantes:
+            st.markdown(f"- **{var}**: {val}")
+            texto_a_leer += f"{var}, "
+
+    # Lectura en voz alta si está activado
+    if st.session_state.get("voz_activa", False):
+        leer_en_voz(texto_a_leer)
+
+    return diagnostico
+
+
 def nuevo_registro():
     st.title("📝 Registro de Pacientes")
 
@@ -633,78 +706,6 @@ def nuevo_registro():
                 st.error(f"Error: {str(e)}")
                 if st.session_state.get("voz_activa", False):
                     leer_en_voz("Ocurrió un error al guardar los datos.")
-
-def ejecutar_prediccion():
-    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
-    df = pd.DataFrame(sheet.get_all_records())
-    if df.empty:
-        st.warning("No hay datos suficientes para predecir.")
-        return
-    faltantes = [col for col in COLUMNAS_MODELO if col not in df.columns]
-    if faltantes:
-        st.error(f"Faltan columnas: {faltantes}")
-        return
-    X = df.iloc[[-1]][COLUMNAS_MODELO].replace("", -1)
-    modelo = cargar_modelo2()
-    proba = modelo.predict_proba(X)[0, 1]
-    pred = int(proba >= 0.21)
-    mostrar_resultado_prediccion(proba, pred)
-    
-def mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=None):
-    """
-    Muestra el resultado de la predicción sin porcentajes y con la lógica corregida para determinar el modelo usado.
-    
-    Args:
-        pred (int): Predicción (0 o 1)
-        modelo_usado (int): 1 para modelo inicial, 2 para modelo secundario
-        variables_importantes (list): Lista de tuplas con variables relevantes
-    """
-    # Determinar diagnóstico según el modelo usado
-    if modelo_usado == 2:
-        diagnostico = "Prediabético" if pred == 0 else "Diabético"
-        color = "#FFA500" if pred == 0 else "#FF0000"  # Naranja para prediabetes, rojo para diabetes
-        emoji = "🟠" if pred == 0 else "🚨"
-        mensaje = (
-            "Tus respuestas indican señales compatibles con una condición prediabética. "
-            "Te recomendamos consultar a un especialista para una evaluación más detallada."
-            if pred == 0 else
-            "Tus respuestas indican señales compatibles con diabetes tipo 2. "
-            "Es importante que acudas a un centro de salud para una evaluación médica."
-        )
-    else:
-        diagnostico = "Sano" if pred == 0 else "En Riesgo"
-        color = "#4CAF50" if pred == 0 else "#FFA500"  # Verde para sano, naranja para riesgo
-        emoji = "✅" if pred == 0 else "⚠️"
-        mensaje = (
-            "¡Buenas noticias! No encontramos señales claras de diabetes. "
-            "Mantén hábitos saludables para prevenir."
-            if pred == 0 else
-            "Tus respuestas muestran factores de riesgo. Continuaremos con una evaluación más detallada."
-        )
-
-    # Mostrar resultado en la interfaz
-    st.markdown(f"""
-        <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; border-left: 5px solid {color}; margin-bottom:20px;'>
-            <h3 style='color:{color}; margin-top:0;'>{emoji} Diagnóstico: {diagnostico}</h3>
-            <p style='margin-bottom:0;'>{mensaje}</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Mostrar variables importantes si es relevante
-    texto_a_leer = mensaje
-    if pred == 1 and variables_importantes:
-        st.markdown("#### 🔍 Factores más relevantes en esta evaluación:")
-        texto_a_leer += " Los factores más relevantes fueron: "
-        
-        for var, val in variables_importantes:
-            st.markdown(f"- **{var}**: {val}")
-            texto_a_leer += f"{var}, "
-
-    # Lectura en voz alta si está activado
-    if st.session_state.get("voz_activa", False):
-        leer_en_voz(texto_a_leer)
-
-    return diagnostico
 
 def mostrar_pacientes():
     st.title("📋 Participante")
