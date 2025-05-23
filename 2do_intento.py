@@ -91,37 +91,6 @@ def render_pregunta(pregunta, key):
             return pregunta["valores"][pregunta["opciones"].index(seleccion)]
         return "" if seleccion == "Selecciona" else seleccion
 
-def obtener_variables_importantes(modelo, datos):
-    # Extrae el último paso del pipeline que tenga feature_importances_
-    modelo_final = None
-    if hasattr(modelo, "named_steps"):
-        for step in reversed(modelo.named_steps.values()):
-            if hasattr(step, "feature_importances_"):
-                modelo_final = step
-                break
-    elif hasattr(modelo, "feature_importances_"):
-        modelo_final = modelo
-
-    if modelo_final is None:
-        st.warning("⚠️ El modelo no tiene feature_importances_.")
-        return []
-
-    importancias = modelo_final.feature_importances_
-    top_indices = importancias.argsort()[::-1]
-
-    fila = datos.iloc[0].to_dict()
-    variables_marcadas = {col: val for col, val in fila.items() if str(val).strip() == "1"}
-
-    variables_relevantes = []
-    for i in top_indices:
-        codigo = COLUMNAS_MODELO[i]
-        if codigo in variables_marcadas:
-            variables_relevantes.append((codigo, variables_marcadas[codigo]))
-        if len(variables_relevantes) == 5:
-            break
-
-    return variables_relevantes
-
 def generar_pdf(respuestas_completas, variables_relevantes):
     pdf = FPDF()
     pdf.add_page()
@@ -408,7 +377,6 @@ def predecir_nuevos_registros(df_input, threshold1=0.33, threshold2=0.49):
 
     return df_input
 
-
 def guardar_respuesta_paciente(fila_dict):
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     encabezados = sheet.row_values(1)
@@ -423,7 +391,6 @@ def guardar_respuesta_paciente(fila_dict):
 
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
     sheet.append_row(nueva_fila)
-
 
 def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
     def safe_float(val, default=0.0):
@@ -496,8 +463,6 @@ def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
         leer_en_voz(texto_a_leer.strip())
 
     return diagnostico
-
-
 
 def ejecutar_prediccion():
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
@@ -575,8 +540,6 @@ def nuevo_registro():
             else:
                 modelo = cargar_modelo1()
 
-            variables_relevantes = obtener_variables_importantes(modelo, resultado)
-
             # Guardar en Sheets
             guardar_respuesta_paciente(fila_final)
 
@@ -584,11 +547,8 @@ def nuevo_registro():
             st.success("✅ Registro guardado correctamente.")
             if st.session_state.get("voz_activa", False):
                 leer_en_voz("Registro guardado correctamente. Mostrando resultados.")
-            mostrar_resultado_prediccion(fila_final, variables_relevantes)
+            mostrar_resultado_prediccion(fila_final)
             st.rerun()
-
-
-
 
 def main():
     if "logged_in" not in st.session_state:
