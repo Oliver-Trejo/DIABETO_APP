@@ -662,6 +662,22 @@ def ejecutar_prediccion():
         if st.session_state.get("voz_activa", False):
             leer_en_voz("Ocurrió un error al procesar la predicción.")
 
+def verificar_campos_faltantes(fila_dict):
+    columnas_requeridas = [
+        "Registrado por", "Fecha", "sexo", "edad", "a0201", "a0206", "a0601",
+        "a0602a", "a0602b", "a0602c", "a0602d", "a0701a", "a0701b", "a0703", "a0704",
+        "a0801a", "a0803a", "a0804a", "a0806a", "a0801b", "a0803b", "a0804b", "a0806b",
+        "a0801c", "a0803c", "a0804c", "a0806c", "a1401", "a1405",
+        "peso", "talla", "cintura",
+        "Probabilidad Estimada 1", "Predicción Óptima 1",
+        "Probabilidad Estimada 2", "Predicción Óptima 2"
+    ]
+    faltantes = [col for col in columnas_requeridas if col not in fila_dict or str(fila_dict[col]).strip() == ""]
+    if faltantes:
+        st.error(f"❌ Faltan columnas requeridas antes de guardar: {faltantes}")
+        return False
+    return True
+
 def nuevo_registro():
     st.title("📝 Registro de Pacientes")
 
@@ -738,6 +754,8 @@ def nuevo_registro():
                 })
 
                 # Guardar en Google Sheets
+                if not verificar_campos_faltantes(fila_final):
+                    st.stop()   
                 exito = guardar_respuesta_paciente(fila_final)
 
                 if exito:
