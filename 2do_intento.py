@@ -368,17 +368,18 @@ def mostrar_pacientes():
             continue
 
         label = etiquetas.get(campo, campo)
-        texto_valor = str(valor)
+        valor_str = str(valor).strip()  # Normaliza valor
+        texto_valor = valor_str
 
-        # Traducir si existe mapeo
+        # Traducir según mapeo del JSON si existe
         if campo in valores_a_texto:
-            texto_valor = valores_a_texto[campo].get(str(valor), str(valor))
+            texto_valor = valores_a_texto[campo].get(valor_str, valor_str)
 
         elif campo == "sexo":
-            texto_valor = "Hombre" if str(valor) in ["1", "Hombre"] else "Mujer" if str(valor) in ["2", "Mujer"] else valor
+            texto_valor = "Hombre" if valor_str in ["1", "Hombre"] else "Mujer" if valor_str in ["2", "Mujer"] else valor_str
 
         elif campo.startswith("Predicción") or campo.startswith("Probabilidad"):
-            continue  # Ya mostrado arriba
+            continue  # Estos ya fueron mostrados en el resumen
 
         st.markdown(f"**{label}:** {texto_valor}")
 
