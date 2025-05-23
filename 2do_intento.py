@@ -526,119 +526,82 @@ def mostrar_pacientes():
             return
 
         registro = df[df["ID"] == registro_seleccionado].iloc[0].to_dict()
-        st.subheader(f"🧾 {registro_seleccionado}")
+        st.subheader(f"🗓️ {registro_seleccionado}")
         if st.session_state.get("voz_activa", False):
             leer_en_voz(f"Mostrando detalles del {registro_seleccionado}")
 
-        # Cargar preguntas
-        try:
-            with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
-                preguntas = json.load(f)
-        except FileNotFoundError:
-            st.error("Error al cargar las preguntas de referencia.")
-            return
-
-        # Mapeo etiquetas y valores
+        # Cargar preguntas para mapeo
         etiquetas = {}
         valores_a_texto = {}
-
-        for seccion in preguntas.values():
-            if isinstance(seccion, list):
-                for p in seccion:
-                    if "codigo" in p:
-                        etiquetas[p["codigo"]] = p.get("label", p["codigo"])
-                        if "valores" in p and "opciones" in p:
-                            valores_a_texto[p["codigo"]] = dict(zip(
-                                map(str, p["valores"]),
-                                p["opciones"]
-                            ))
-            elif isinstance(seccion, dict):
-                for grupo in seccion.values():
-                    for p in grupo:
+        with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
+            preguntas = json.load(f)
+            for seccion in preguntas.values():
+                if isinstance(seccion, list):
+                    for p in seccion:
                         if "codigo" in p:
                             etiquetas[p["codigo"]] = p.get("label", p["codigo"])
                             if "valores" in p and "opciones" in p:
-                                valores_a_texto[p["codigo"]] = dict(zip(
-                                    map(str, p["valores"]),
-                                    p["opciones"]
-                                ))
+                                valores_a_texto[p["codigo"]] = dict(zip([str(v) for v in p["valores"]], p["opciones"]))
+                elif isinstance(seccion, dict):
+                    for grupo in seccion.values():
+                        for p in grupo:
+                            if "codigo" in p:
+                                etiquetas[p["codigo"]] = p.get("label", p["codigo"])
+                                if "valores" in p and "opciones" in p:
+                                    valores_a_texto[p["codigo"]] = dict(zip([str(v) for v in p["valores"]], p["opciones"]))
 
-        # Determinar diagnóstico
+        # Evaluar el modelo y mostrar resultado
         modelo_usado = None
         diagnostico = None
-
-        if all(k in registro for k in ["Probabilidad Estimada 2", "Predicción Óptima 2"]):
-            try:
-                prob = float(registro["Probabilidad Estimada 2"])
+        try:
+            if "Predicción Óptima 2" in registro and registro["Predicción Óptima 2"] != "":
+                modelo_usado = 2
                 pred = int(registro["Predicción Óptima 2"])
                 modelo = cargar_modelo2()
-                modelo_usado = 2
-            except Exception as e:
-                st.warning(f"Error en datos del modelo avanzado: {e}")
-                return
-        elif all(k in registro for k in ["Probabilidad Estimada 1", "Predicción Óptima 1"]):
-            try:
-                prob = float(registro["Probabilidad Estimada 1"])
+            elif "Predicción Óptima 1" in registro:
+                modelo_usado = 1
                 pred = int(registro["Predicción Óptima 1"])
                 modelo = cargar_modelo1()
-                modelo_usado = 1
-            except Exception as e:
-                st.warning(f"Error en datos del modelo básico: {e}")
-                return
-        else:
-            st.warning("Este registro no contiene datos de diagnóstico.")
-            return
+            else:
+                raise ValueError("No se encontraron datos de predicción.")
 
-        # Mostrar diagnóstico y factores importantes
-        st.markdown("### 📊 Resultado de Evaluación")
-        try:
             df_modelo = pd.DataFrame([{k: v for k, v in registro.items() if k in COLUMNAS_MODELO}])
-
-            if df_modelo["sexo"].iloc[0] not in [1, 2]:
-                df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2}).fillna(-1)
-
             df_modelo = df_modelo.replace("", np.nan)
+            df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2}).fillna(-1)
             X = df_modelo[COLUMNAS_MODELO].apply(pd.to_numeric, errors="coerce").fillna(-1)
+
             variables_relevantes = obtener_variables_importantes(modelo, X)
+            mostrar_resultado_prediccion(pred, modelo_usado, variables_relevantes)
 
-            # ✅ CORREGIDO: Argumentos nombrados
-            mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=variables_relevantes)
-            
         except Exception as e:
-            st.error(f"Error al generar diagnóstico: {e}")
-            if st.session_state.get("voz_activa", False):
-                leer_en_voz("Ocurrió un error al procesar el resultado del participante.")
+            st.warning(f"Error al generar diagnóstico: {e}")
 
-        # Respuestas registradas
-        st.markdown("### ✍🏽 Respuestas Registradas")
+        # Mostrar respuestas
+        st.markdown("### ✍️ Respuestas registradas")
         for campo, valor in registro.items():
             if campo in ["Registrado por", "ID"] or pd.isna(valor):
                 continue
 
-            label = etiquetas.get(campo, campo.replace("_", " ").title())
+            label = etiquetas.get(campo, campo)
             texto_valor = str(valor)
 
-            # Traducir si existe mapeo
             if campo in valores_a_texto:
-                texto_valor = valores_a_texto[campo].get(str(valor), texto_valor)
-
+                texto_valor = valores_a_texto[campo].get(str(valor), str(valor))
             elif campo == "sexo":
-                texto_valor = "Hombre" if str(valor) in ["1", "Hombre"] else "Mujer" if str(valor) in ["2", "Mujer"] else texto_valor
-
+                texto_valor = "Hombre" if str(valor) in ["1", "Hombre"] else "Mujer" if str(valor) in ["2", "Mujer"] else valor
             elif campo.startswith("Predicción") or campo.startswith("Probabilidad"):
-                continue  # Ya mostrado arriba
+                continue
 
             st.markdown(f"**{label}:** {texto_valor}")
 
-        # Descargar PDF
+        # Botón de descarga PDF
         st.download_button(
-            label="📥 Descargar informe completo",
+            label="📅 Descargar resumen en PDF",
             data=generar_pdf(
-                [(etiquetas.get(k, k), valores_a_texto.get(k, {}).get(str(v), v))
-                 for k, v in registro.items()
-                 if k not in ["Registrado por", "ID"]]
-            ),
-            file_name=f"Informe_{registro_seleccionado.replace(' ', '_')}.pdf",
+                [(etiquetas.get(k, k), valores_a_texto.get(k, {}).get(str(v), str(v)))
+                 for k, v in registro.items() if k not in ["Registrado por", "ID"]]
+            , variables_relevantes),
+            file_name=f"{registro_seleccionado.replace(' ', '_')}.pdf",
             mime="application/pdf"
         )
 
