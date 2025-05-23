@@ -744,6 +744,20 @@ def nuevo_registro():
                     "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
 
+                # Asegura columnas del modelo 2 aunque no se usen
+                for col in ["Probabilidad Estimada 2", "Predicción Óptima 2"]:
+                    if col not in fila_final:
+                        fila_final[col] = ""
+
+                # 🔍 DEBUG: Mostrar fila final a guardar
+                st.write("🟦 DEBUG - Fila final a guardar:", fila_final)
+
+                # Validación de campos requeridos
+                if not verificar_campos_faltantes(fila_final):
+                    st.warning("🟥 Hay campos faltantes en fila_final.")
+                    st.write("Campos faltantes detectados en verificación:", fila_final)
+                    return
+
                 # Guardar en Google Sheets
                 if not verificar_campos_faltantes(fila_final):
                     st.stop()   
