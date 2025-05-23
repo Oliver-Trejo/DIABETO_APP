@@ -409,23 +409,27 @@ def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     encabezados = sheet.row_values(1)
 
-    # Asegurar que existan las claves requeridas
+    # Agregar info de predicción y usuario
     fila_dict["Probabilidad Estimada"] = float(proba)
     fila_dict["Predicción Óptima"] = int(pred)
     fila_dict["Registrado por"] = st.session_state.get("usuario", "Desconocido")
 
-    # Detectar columnas nuevas no presentes en encabezados
+    # Detectar columnas nuevas
     nuevos = [k for k in fila_dict.keys() if k not in encabezados]
-    if nuevos:
-        encabezados += nuevos
-        sheet.delete_row(1)  # Elimina encabezado anterior
-        sheet.insert_row(encabezados, 1)  # Inserta encabezado actualizado
 
-    # Construir la nueva fila en orden de encabezados
+    # Si hay columnas nuevas, actualiza solo esas celdas en la fila 1 (encabezados)
+    if nuevos:
+        for i, nueva_col in enumerate(nuevos):
+            col_idx = len(encabezados) + i + 1  # 1-based indexing
+            sheet.update_cell(1, col_idx, nueva_col)
+        encabezados += nuevos
+
+    # Construir fila alineada a encabezados
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
 
-    # Agregar la fila
+    # Agregar fila
     sheet.append_row(nueva_fila)
+
 
 def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
     color = "#FFA500" if pred == 1 else "#4CAF50"
