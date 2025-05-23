@@ -391,13 +391,6 @@ def guardar_respuesta_paciente(fila_dict, proba=None, pred=None):
     fila_dict["Predicción Óptima"] = int(pred)
     fila_dict["Registrado por"] = st.session_state.get("usuario", "Desconocido")
 
-    # Asegurar que latitud y longitud estén en los encabezados
-    columnas_necesarias = ["latitud", "longitud"]
-    for col in columnas_necesarias:
-        if col not in encabezados:
-            sheet.update_cell(1, len(encabezados) + 1, col)  # Añade al final
-            encabezados.append(col)
-
     # Crear la nueva fila respetando el orden de encabezados
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
     sheet.append_row(nueva_fila)
@@ -436,7 +429,7 @@ def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
     return texto_a_leer
 
 def ejecutar_prediccion():
-    sheet = conectar_google_sheet(key="1C5H_AJQtMCvNdHfs55Hv8vl_LcwAI0_syK85JV1KUv0")
+    sheet = conectar_google_sheet(key="pacientes_key")
     df = pd.DataFrame(sheet.get_all_records())
     if df.empty:
         st.warning("No hay datos suficientes para predecir.")
@@ -493,9 +486,6 @@ def nuevo_registro():
                     respuestas[codigo] = render_pregunta(p, key=codigo)
 
         if st.form_submit_button("Guardar"):
-            # 🔹 Agregar ubicación detectada al registro
-            respuestas["latitud"] = st.session_state.get("latitud", "")
-            respuestas["longitud"] = st.session_state.get("longitud", "")
 
             # 🔹 Hacer predicción
             df_modelo = pd.DataFrame([respuestas])
@@ -518,8 +508,6 @@ def nuevo_registro():
 def main():
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
-    if "ubicacion_obtenida" not in st.session_state:
-        st.session_state["ubicacion_obtenida"] = False
     if st.session_state["logged_in"]:
         st.sidebar.markdown("## Navegación")
         opcion = st.sidebar.radio("", ["Mi Cuenta", "Nuevo Registro", "Participante"])
