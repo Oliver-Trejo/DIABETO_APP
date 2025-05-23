@@ -88,12 +88,24 @@ def render_pregunta(pregunta, key):
         return "" if seleccion == "Selecciona" else seleccion
 
 def obtener_variables_importantes(modelo, datos):
-    importancias = modelo.feature_importances_
+    # Extrae el último paso del pipeline que tenga feature_importances_
+    modelo_final = None
+    if hasattr(modelo, "named_steps"):
+        for step in reversed(modelo.named_steps.values()):
+            if hasattr(step, "feature_importances_"):
+                modelo_final = step
+                break
+    elif hasattr(modelo, "feature_importances_"):
+        modelo_final = modelo
+
+    if modelo_final is None:
+        st.warning("⚠️ El modelo no tiene feature_importances_.")
+        return []
+
+    importancias = modelo_final.feature_importances_
     top_indices = importancias.argsort()[::-1]
 
-    fila = datos.iloc[0].to_dict()  # Convertir a diccionario
-
-    # Solo variables con valor "1"
+    fila = datos.iloc[0].to_dict()
     variables_marcadas = {col: val for col, val in fila.items() if str(val).strip() == "1"}
 
     variables_relevantes = []
@@ -105,6 +117,7 @@ def obtener_variables_importantes(modelo, datos):
             break
 
     return variables_relevantes
+
 
 def generar_pdf(respuestas_completas, variables_relevantes):
     pdf = FPDF()
