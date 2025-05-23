@@ -68,16 +68,44 @@ def cargar_css(path):
     with open(path) as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-def conectar_google_sheet(nombre=None, key=None):
-    import gspread
-    from oauth2client.service_account import ServiceAccountCredentials
+def conectar_google_sheet(nombre=None, key=None, debug=False):
 
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds_dict = st.secrets["gcp_service_account"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(creds_dict), scope)
-    client = gspread.authorize(creds)
+    try:
+        # Validar credenciales
+        if "gcp_service_account" not in st.secrets:
+            raise RuntimeError("No se encontró 'gcp_service_account' en st.secrets")
 
-    return client.open_by_key(key).sheet1 if key else client.open(nombre).sheet1
+        creds_dict = st.secrets["gcp_service_account"]
+        scope = [
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+
+        # Crear credenciales
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(creds_dict), scope)
+        client = gspread.authorize(creds)
+
+        # Abrir hoja por clave o nombre
+        if key:
+            sheet = client.open_by_key(key).sheet1
+        elif nombre:
+            sheet = client.open(nombre).sheet1
+        else:
+            raise ValueError("Debes proporcionar 'key' o 'nombre' para abrir el Google Sheet")
+
+        if debug:
+            st.success(f"✅ Conectado exitosamente a: {sheet.title}")
+
+        return sheet
+
+    except gspread.exceptions.SpreadsheetNotFound:
+        raise RuntimeError("🔒 No se pudo encontrar el Google Sheet. ¿La clave es correcta y está compartido con la cuenta de servicio?")
+    except gspread.exceptions.APIError as api_error:
+        raise RuntimeError(f"🌐 Error de API de Google Sheets: {str(api_error)}")
+    except Exception as e:
+        raise RuntimeError(f"❌ Error inesperado al conectar con Google Sheets: {str(e)}")
+
 
 
 def render_pregunta(pregunta, key):
@@ -729,8 +757,6 @@ def nuevo_registro():
                 st.error(f"Error: {str(e)}")
                 if st.session_state.get("voz_activa", False):
                     leer_en_voz("Ocurrió un error al guardar los datos.")
-
-
 
 def main():
     if "logged_in" not in st.session_state:
