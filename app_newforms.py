@@ -16,6 +16,7 @@ from datetime import datetime
 import time
 import gspread
 import numpy as np
+from gspread.exceptions import APIError
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
@@ -503,8 +504,6 @@ def guardar_respuesta_paciente(fila_dict):
     Returns:
         bool: True si se guardó correctamente, False si hubo error.
     """
-    import gspread
-    from gspread.exceptions import APIError
 
     MAX_INTENTOS = 3
     intentos = 0
