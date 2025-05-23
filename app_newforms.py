@@ -105,54 +105,28 @@ def conectar_google_sheet(nombre=None, key=None, debug=False):
         raise RuntimeError(f"❌ Error inesperado al conectar con Google Sheets: {str(e)}")
 
 def render_pregunta(pregunta, key):
-    """
-    Renderiza una pregunta en Streamlit según su tipo y devuelve la respuesta.
+    tipo = pregunta.get("tipo", "text")
+    label = pregunta.get("label", "").strip()
 
-    Args:
-        pregunta (dict): Diccionario con los atributos de la pregunta.
-        key (str): Clave única para el componente.
+    if not label:
+        label = "Pregunta sin título"  # Fallback obligatorio
+        st.warning(f"⚠️ Pregunta con 'label' vacío detectada en key: {key}")
 
-    Returns:
-        str/int/float: Valor ingresado por el usuario.
-    """
-    try:
-        tipo = pregunta.get("tipo")
-        label = pregunta.get("label", "Pregunta sin etiqueta")
+    if tipo == "text":
+        return st.text_input(label, key=key)
+    elif tipo == "number":
+        return st.number_input(label, key=key)
+    elif tipo == "textarea":
+        return st.text_area(label, key=key)
+    elif tipo == "select":
+        opciones = ["Selecciona"] + pregunta.get("opciones", [])
+        seleccion = st.selectbox(label, opciones, key=key)
+        if "valores" in pregunta and seleccion != "Selecciona":
+            return pregunta["valores"][pregunta["opciones"].index(seleccion)]
+        return "" if seleccion == "Selecciona" else seleccion
+    else:
+        return st.text_input(label, key=key)  # Fallback para tipos no reconocidos
 
-        if tipo == "text":
-            return st.text_input(label, key=key)
-
-        elif tipo == "number":
-            # Opcionales: min, max
-            min_val = pregunta.get("min", 0)
-            max_val = pregunta.get("max", 150)
-            step = pregunta.get("step", 1)
-            return st.number_input(label, min_value=min_val, max_value=max_val, step=step, key=key)
-
-        elif tipo == "textarea":
-            return st.text_area(label, key=key)
-
-        elif tipo == "select":
-            opciones = ["Selecciona"] + pregunta.get("opciones", [])
-            seleccion = st.selectbox(label, opciones, key=key)
-            if seleccion == "Selecciona":
-                return ""
-            # Devolver el valor mapeado si existe
-            if "valores" in pregunta:
-                try:
-                    index = pregunta["opciones"].index(seleccion)
-                    return pregunta["valores"][index]
-                except (ValueError, IndexError):
-                    return seleccion
-            return seleccion
-
-        else:
-            st.warning(f"⚠️ Tipo de pregunta desconocido: '{tipo}'")
-            return None
-
-    except Exception as e:
-        st.error(f"❌ Error al renderizar la pregunta: {str(e)}")
-        return None
 
 def obtener_variables_importantes(modelo, datos, top_n=5):
     modelo_final = None
