@@ -682,8 +682,20 @@ def nuevo_registro():
             if isinstance(contenido, dict):  # Antecedentes familiares
                 for familiar, grupo in contenido.items():
                     with st.expander(f"Antecedentes familiares: {familiar}"):
-                        for p in grupo:
-                            codigo = p.get("codigo", f"{uuid.uuid4().hex[:6]}")
+                        for p in contenido:
+                            if not isinstance(p, dict):
+                                st.warning(f"⚠️ Entrada inválida en sección {titulo}: {p}")
+                                continue
+
+                            if not p.get("label"):
+                                st.warning(f"⚠️ Pregunta sin 'label' detectada en código: {p.get('codigo', 'sin_codigo')}")
+                                p["label"] = "Pregunta sin título"
+
+                            if not p.get("codigo"):
+                                st.warning(f"⚠️ Pregunta sin 'codigo', se omitirá.")
+                                continue
+
+                            codigo = p["codigo"]
                             respuestas[codigo] = render_pregunta(p, key=f"{key_form}_{codigo}")
             elif isinstance(contenido, list):  # Sección normal
                 for p in contenido:
