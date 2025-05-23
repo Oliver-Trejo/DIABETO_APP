@@ -494,66 +494,69 @@ def predecir_nuevos_registros(df_input, threshold1=0.18, threshold2=0.18):
     
 def guardar_respuesta_paciente(fila_dict):
     """
-    Guarda un registro de paciente en Google Sheets con validación robusta.
+    Guarda un registro de paciente en Google Sheets con control de errores,
+    manejo de encabezados y verificación posterior.
 
     Args:
         fila_dict (dict): Diccionario con los datos del paciente.
 
     Returns:
-        bool: True si se guardó correctamente, False en caso de error.
+        bool: True si se guardó correctamente, False si hubo error.
     """
+    import gspread
+    from gspread.exceptions import APIError
+
     MAX_INTENTOS = 3
     intentos = 0
 
     while intentos < MAX_INTENTOS:
         try:
-            # Validación básica
             if not fila_dict or not isinstance(fila_dict, dict):
                 st.error("❌ Los datos del paciente están vacíos o mal formateados.")
                 return False
 
-            # Limpiar y normalizar valores
+            # Normalizar todos los valores a string
             fila_limpia = {
-                k: str(v).strip() if v is not None else ""
+                str(k).strip(): str(v).strip() if v is not None else ""
                 for k, v in fila_dict.items()
             }
 
-            # Conexión con la hoja de Google Sheets
+            # Conectar a la hoja
             sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
             encabezados = sheet.row_values(1)
 
-            # Crear encabezados si la hoja está vacía
+            # Crear encabezados si no existen
             if not encabezados:
                 encabezados = list(fila_limpia.keys())
-                sheet.insert_row(encabezados, 1)
+                sheet.update('A1', [encabezados])
 
-            # Verificar columnas nuevas que no existan aún
+            # Detectar y añadir columnas nuevas
             nuevas_columnas = [col for col in fila_limpia if col not in encabezados]
             if nuevas_columnas:
                 encabezados += nuevas_columnas
                 sheet.update('A1', [encabezados])
 
-            # Ordenar la fila según los encabezados actualizados
+            # Ordenar datos según encabezados
             fila_ordenada = [fila_limpia.get(col, "") for col in encabezados]
 
-            # Agregar fila al final
+            # Guardar la fila
             sheet.append_row(fila_ordenada)
 
-            # Validación post-escritura
-            registros = sheet.get_all_records()
-            if not registros or registros[-1].get("Registrado por") != fila_limpia.get("Registrado por"):
-                raise ValueError("La verificación de guardado falló.")
+            # Verificación simple por última fila exacta
+            ultima_fila = sheet.row_values(sheet.row_count)
+            if fila_ordenada != ultima_fila:
+                raise ValueError("⚠️ La fila guardada no coincide con los datos enviados.")
 
             st.toast("✅ Datos guardados correctamente.")
             return True
 
-        except gspread.exceptions.APIError as e:
+        except APIError as e:
             intentos += 1
-            st.warning(f"🌐 Error al conectar con Sheets (intento {intentos}): {str(e)}")
+            st.warning(f"🌐 Error de conexión con Google Sheets (intento {intentos}/{MAX_INTENTOS}): {e}")
             time.sleep(2)
 
         except Exception as e:
-            st.error(f"❌ Error al guardar los datos: {str(e)}")
+            st.error(f"❌ Error al guardar: {str(e)}")
             return False
 
     return False
@@ -762,108 +765,90 @@ def nuevo_registro():
 def mostrar_pacientes():
     st.title("📋 Participante")
 
-    # Configuración inicial
     if st.session_state.get("voz_activa", False):
         leer_en_voz("Estás en la sección de participantes. Aquí puedes consultar los registros guardados.")
 
     try:
-        # Cargar datos desde Google Sheets
         sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
         registros = sheet.get_all_records()
-        
         if not registros:
-            st.info("No hay registros disponibles en la base de datos.")
+            st.info("No hay registros disponibles.")
             return
-            
+
         df = pd.DataFrame(registros).dropna(how="all")
-        
-        # Filtrar por usuario actual
         usuario_actual = st.session_state.get("usuario", "").strip().lower()
         df = df[df["Registrado por"].str.strip().str.lower() == usuario_actual]
 
         if df.empty:
-            st.info("No tienes registros guardados aún. Crea uno en 'Nuevo Registro'.")
+            st.info("No tienes registros guardados aún.")
             return
 
-        # Generar IDs legibles
         df["ID"] = [f"Registro #{i+1}" for i in range(len(df))]
-        
-        # Selección de registro
+
         registro_seleccionado = st.selectbox(
-            "Selecciona un registro para ver el detalle:", 
+            "Selecciona un registro para ver el detalle:",
             ["Selecciona"] + df["ID"].tolist()
         )
 
         if registro_seleccionado == "Selecciona":
             return
 
-        # Obtener registro específico
         registro = df[df["ID"] == registro_seleccionado].iloc[0].to_dict()
-        
-        # Mostrar encabezado
         st.subheader(f"🧾 {registro_seleccionado}")
         if st.session_state.get("voz_activa", False):
             leer_en_voz(f"Mostrando detalles del {registro_seleccionado}")
 
-        # Cargar estructura de preguntas
+        # Cargar preguntas
         try:
             with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
                 preguntas = json.load(f)
         except FileNotFoundError:
-            st.error("Error al cargar las preguntas de referencia")
+            st.error("Error al cargar las preguntas de referencia.")
             return
 
-        # Procesamiento de diagnóstico
+        # Evaluar el modelo
         modelo_usado = None
         diagnostico = None
-        
-        # Verificar modelo 2 primero
+
         if all(k in registro for k in ["Probabilidad Estimada 2", "Predicción Óptima 2"]):
             try:
                 prob = float(registro["Probabilidad Estimada 2"])
                 pred = int(registro["Predicción Óptima 2"])
                 modelo = cargar_modelo2()
                 modelo_usado = 2
-            except (ValueError, TypeError) as e:
-                st.warning(f"Datos inválidos en predicción avanzada: {str(e)}")
+            except Exception as e:
+                st.warning(f"Error en datos del modelo avanzado: {e}")
                 return
-        # Verificar modelo 1
         elif all(k in registro for k in ["Probabilidad Estimada 1", "Predicción Óptima 1"]):
             try:
                 prob = float(registro["Probabilidad Estimada 1"])
                 pred = int(registro["Predicción Óptima 1"])
                 modelo = cargar_modelo1()
                 modelo_usado = 1
-            except (ValueError, TypeError) as e:
-                st.warning(f"Datos inválidos en predicción inicial: {str(e)}")
+            except Exception as e:
+                st.warning(f"Error en datos del modelo básico: {e}")
                 return
         else:
-            st.warning("Este registro no contiene datos de diagnóstico completos")
+            st.warning("Este registro no contiene datos de diagnóstico.")
             return
 
-        # Mostrar resultado
-        with st.container():
-            st.markdown("### 📊 Resultado de Evaluación")
-            
-            # Obtener variables importantes
-            df_modelo = pd.DataFrame([registro])
-            df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2})
-            X = df_modelo[COLUMNAS_MODELO].fillna(-1).astype(float)
-            
-            try:
-                variables_relevantes = obtener_variables_importantes(modelo, X)
-                diagnostico = mostrar_resultado_prediccion(
-                    pred=pred,
-                    modelo_usado=modelo_usado,
-                    variables_importantes=variables_relevantes
-                )
-            except Exception as e:
-                st.error(f"Error al generar diagnóstico: {str(e)}")
+        # Resultado
+        st.markdown("### 📊 Resultado de Evaluación")
+        try:
+            df_modelo = pd.DataFrame([{k: v for k, v in registro.items() if k in COLUMNAS_MODELO}])
 
-        # Mostrar respuestas detalladas
-        st.markdown("### ✍🏽 Respuestas Registradas")
-        
-        # Mapeo de códigos a preguntas
+            if df_modelo["sexo"].iloc[0] not in [1, 2]:
+                df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2}).fillna(-1)
+
+            X = df_modelo[COLUMNAS_MODELO].apply(pd.to_numeric, errors="coerce").fillna(-1)
+            variables_relevantes = obtener_variables_importantes(modelo, X)
+            mostrar_resultado_prediccion(pred, modelo_usado, variables_importantes=variables_relevantes)
+        except Exception as e:
+            st.error(f"Error al generar diagnóstico: {e}")
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz("Ocurrió un error al procesar el resultado del participante.")
+
+        # Mapeo de etiquetas
         mapeo_preguntas = {}
         for seccion in preguntas.values():
             if isinstance(seccion, list):
@@ -876,38 +861,38 @@ def mostrar_pacientes():
                         if "codigo" in p:
                             mapeo_preguntas[p["codigo"]] = p.get("label", p["codigo"])
 
-        # Mostrar respuestas organizadas
+        # Respuestas
+        st.markdown("### ✍🏽 Respuestas Registradas")
         for campo, valor in registro.items():
             if campo in ["Registrado por", "ID"] or pd.isna(valor):
                 continue
-                
+
             etiqueta = mapeo_preguntas.get(campo, campo.replace("_", " ").title())
             valor_mostrar = str(valor).strip()
-            
-            # Formatear valores especiales
-            if campo in ["sexo"]:
-                valor_mostrar = "Hombre" if valor == 1 else "Mujer" if valor == 2 else valor_mostrar
+
+            if campo == "sexo":
+                valor_mostrar = "Hombre" if valor in [1, "1", "Hombre"] else "Mujer" if valor in [2, "2", "Mujer"] else valor_mostrar
             elif campo in ["Predicción Óptima 1", "Predicción Óptima 2"]:
-                valor_mostrar = "Sí" if int(float(valor)) == 1 else "No"
-            
+                valor_mostrar = "Sí" if str(valor) == "1" else "No"
+
             st.markdown(f"**{etiqueta}:** {valor_mostrar}")
 
-        # Botón de descarga
+        # Descargar
         st.download_button(
             label="📥 Descargar informe completo",
             data=generar_pdf(
-                [(mapeo_preguntas.get(k, k), str(v))  # <-- Ahora con paréntesis cerrado
-                for k, v in registro.items() 
-                if k not in ["Registrado por", "ID"]]
+                [(mapeo_preguntas.get(k, k), str(v))
+                 for k, v in registro.items()
+                 if k not in ["Registrado por", "ID"]]
             ),
             file_name=f"Informe_{registro_seleccionado.replace(' ', '_')}.pdf",
             mime="application/pdf"
         )
 
     except Exception as e:
-        st.error(f"Error al cargar los registros: {str(e)}")
+        st.error(f"Error al cargar registros: {e}")
         if st.session_state.get("voz_activa", False):
-            leer_en_voz("Ocurrió un error al cargar los registros. Por favor intenta nuevamente.")
+            leer_en_voz("Ocurrió un error al cargar los registros.")
 
 def main():
     if "logged_in" not in st.session_state:
