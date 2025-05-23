@@ -154,12 +154,10 @@ def render_pregunta(pregunta, key):
         st.error(f"❌ Error al renderizar la pregunta: {str(e)}")
         return None
 
-
-def obtener_variables_importantes(modelo, datos):
-    # Buscar un paso del pipeline que tenga feature_importances_
+def obtener_variables_importantes(modelo, datos, top_n=5):
     modelo_final = None
     if hasattr(modelo, "named_steps"):
-        for name, step in modelo.named_steps.items():
+        for step in modelo.named_steps.values():
             if hasattr(step, "feature_importances_"):
                 modelo_final = step
                 break
@@ -174,16 +172,11 @@ def obtener_variables_importantes(modelo, datos):
     top_indices = importancias.argsort()[::-1]
     fila = datos.iloc[0].to_dict()
 
-    # Solo variables con valor "1"
-    variables_marcadas = {col: val for col, val in fila.items() if str(val).strip() == "1"}
-
     variables_relevantes = []
-    for i in top_indices:
+    for i in top_indices[:top_n]:
         codigo = COLUMNAS_MODELO[i]
-        if codigo in variables_marcadas:
-            variables_relevantes.append((codigo, variables_marcadas[codigo]))
-        if len(variables_relevantes) == 5:
-            break
+        valor = fila.get(codigo, "")
+        variables_relevantes.append((codigo, valor))
 
     return variables_relevantes
 
