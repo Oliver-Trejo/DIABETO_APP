@@ -664,7 +664,7 @@ def ejecutar_prediccion():
 
 def verificar_campos_faltantes(fila_dict):
     columnas_requeridas = [
-        "Registrado por", "Fecha", "sexo", "edad", "a0201", "a0206", "a0601",
+        "Registrado por", "sexo", "edad", "a0201", "a0206", "a0601",
         "a0602a", "a0602b", "a0602c", "a0602d", "a0701a", "a0701b", "a0703", "a0704",
         "a0801a", "a0803a", "a0804a", "a0806a", "a0801b", "a0803b", "a0804b", "a0806b",
         "a0801c", "a0803c", "a0804c", "a0806c", "a1401", "a1405",
@@ -745,6 +745,11 @@ def nuevo_registro():
 
                 modelo = cargar_modelo2() if modelo_usado == 2 else cargar_modelo1()
                 variables_relevantes = obtener_variables_importantes(modelo, resultado)
+
+                # Asegura columnas del modelo 2 aunque no se usen
+                for col in ["Probabilidad Estimada 2", "Predicción Óptima 2"]:
+                    if col not in fila_final:
+                        fila_final[col] = ""
 
                 # Preparar datos para guardar
                 fila_final = resultado.iloc[0].to_dict()
