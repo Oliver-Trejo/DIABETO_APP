@@ -72,7 +72,8 @@ def conectar_google_sheet(nombre=None, key=None):
 
 
 def render_pregunta(pregunta, key):
-    tipo, label = pregunta["tipo"], pregunta["label"]
+    tipo = pregunta.get("tipo", "text")
+    label = pregunta.get("label", "Pregunta sin título")
     if tipo == "text":
         return st.text_input(label, key=key)
     elif tipo == "number":
@@ -333,7 +334,7 @@ def mostrar_pacientes():
             pred = int(registro["Predicción Óptima"])
             modelo = cargar_modelo1()
             df_modelo = registro.to_frame().T
-            df_modelo["SEXO"] = df_modelo["SEXO"].replace({"Masculino": 1, "Femenino": 0, "Otro": 2})
+            df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer":2})
             X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
             df_modelo['Probabilidad Estimada'] = modelo.predict_proba(X)[:, 1]
             df_modelo['Predicción Óptima'] = (df_modelo['Probabilidad Estimada'] >= 0.18).astype(int)
@@ -429,7 +430,7 @@ def mostrar_resultado_prediccion(proba, pred, variables_importantes=None):
     return texto_a_leer
 
 def ejecutar_prediccion():
-    sheet = conectar_google_sheet(key="pacientes_key")
+    sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
     df = pd.DataFrame(sheet.get_all_records())
     if df.empty:
         st.warning("No hay datos suficientes para predecir.")
@@ -474,13 +475,13 @@ def nuevo_registro():
                     if st.session_state.get("voz_activa", False):
                         leer_en_voz(f"{familiar}")
                     for i, p in enumerate(grupo):
-                        codigo = p.get("codigo", f"{p['label']}-{i}")
+                        codigo = p.get("codigo") or f"preg_{uuid.uuid4().hex[:6]}"
                         if st.session_state.get("voz_activa", False):
                             leer_en_voz(p.get("label", ""))
                         respuestas[codigo] = render_pregunta(p, key=codigo)
             else:
                 for i, p in enumerate(preguntas):
-                    codigo = p.get("codigo", f"{p['label']}-{i}")
+                    codigo = p.get("codigo") or f"preg_{uuid.uuid4().hex[:6]}"
                     if st.session_state.get("voz_activa", False):
                         leer_en_voz(p.get("label", ""))
                     respuestas[codigo] = render_pregunta(p, key=codigo)
