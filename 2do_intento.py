@@ -336,7 +336,7 @@ def guardar_respuesta_paciente(fila_dict):
 
 def mostrar_resultado_prediccion(pred, modelo_usado=1, variables_importantes=None):
     try:
-        pred = int(round(pred))  # Asegurar 0 o 1
+        pred = int(round(pred))
 
         if modelo_usado == 2:
             diagnostico = "Prediabético" if pred == 0 else "Diabético"
@@ -360,7 +360,6 @@ def mostrar_resultado_prediccion(pred, modelo_usado=1, variables_importantes=Non
                 "Te sugerimos una evaluación más detallada."
             )
 
-        # Mostrar resultado
         st.markdown(f"""
             <div style='background-color:#f0f2f6; padding:20px; border-radius:10px; 
                         border-left: 5px solid {color}; margin-bottom:20px;'>
