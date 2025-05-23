@@ -322,48 +322,36 @@ def mostrar_pacientes():
         with open(RUTA_PREGUNTAS, encoding="utf-8") as f:
             preguntas_json = json.load(f)
 
+        # Construir mapeo de códigos a etiquetas y opciones
         codigo_a_label = {}
         codigo_a_opciones = {}
+        for seccion in preguntas_json.values():
+            if isinstance(seccion, list):
+                for p in seccion:
+                    codigo = p.get("codigo")
+                    if codigo:
+                        codigo_a_label[codigo] = p.get("label", codigo)
+                        if "valores" in p and "opciones" in p:
+                            codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
+            elif isinstance(seccion, dict):
+                for grupo in seccion.values():
+                    for p in grupo:
+                        codigo = p.get("codigo")
+                        if codigo:
+                            codigo_a_label[codigo] = p.get("label", codigo)
+                            if "valores" in p and "opciones" in p:
+                                codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
 
-        for bloque in ["Generales", "Familia", "Hábitos"]:
-            for p in preguntas_json.get(bloque, []):
-                codigo = p.get("codigo")
-                if codigo:
-                    codigo_a_label[codigo] = p.get("label", codigo)
-                    if "valores" in p and "opciones" in p:
-                        codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
-
-        for familiar, grupo in preguntas_json.get("Antecedentes familiares", {}).items():
-            for p in grupo:
-                codigo = p.get("codigo")
-                if codigo:
-                    codigo_a_label[codigo] = p.get("label", codigo)
-                    if "valores" in p and "opciones" in p:
-                        codigo_a_opciones[codigo] = dict(zip(p["valores"], p["opciones"]))
-
+        # Variables importantes para el resultado
         variables_etiquetadas = []
         if "Probabilidad Estimada" in registro and "Predicción Óptima" in registro:
             prob = float(registro["Probabilidad Estimada"])
             pred = int(registro["Predicción Óptima"])
-            prob = float(registro["Probabilidad Estimada"])
-            pred = int(registro["Predicción Óptima"])
 
             modelo = cargar_modelo1()
-            df_modelo = pd.DataFrame([registro])
-
-            # Normalizar sexo si es texto
-            if df_modelo["sexo"].iloc[0] in ["Hombre", "Mujer"]:
-                df_modelo["sexo"] = df_modelo["sexo"].replace({"Hombre": 1, "Mujer": 2})
-
-            # Asegurar que todas las columnas del modelo existen
-            for col in COLUMNAS_MODELO:
-                if col not in df_modelo.columns:
-                    df_modelo[col] = -1  # Rellenar faltantes con valor neutro
-
-            X = df_modelo[COLUMNAS_MODELO].replace("", -1).astype(float)
-            variables_relevantes = obtener_variables_importantes(modelo, X)
-
+            df_modelo = pd.DataFrame([registro])[COLUMNAS_MODELO].replace("", -1).astype(float)
             variables_relevantes = obtener_variables_importantes(modelo, df_modelo)
+
             for var, val in variables_relevantes:
                 nombre = codigo_a_label.get(var, var)
                 if var in codigo_a_opciones:
@@ -377,6 +365,7 @@ def mostrar_pacientes():
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(texto_diagnostico)
 
+        # Mostrar respuestas del usuario
         st.markdown("#### ✍🏽 Tus respuestas")
         respuestas_mostradas = []
         for campo, valor in registro.items():
@@ -393,12 +382,14 @@ def mostrar_pacientes():
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(f"{label}: {valor}")
 
+        # Descargar respuestas en PDF
         if st.session_state.get("voz_activa", False):
             leer_en_voz("Presiona el botón azul con rojo de la parte de abajo para descargar tus respuestas.")
 
         if st.button("📥 Descargar resumen de respuestas"):
             pdf_buffer = generar_pdf(respuestas_mostradas, variables_etiquetadas)
             st.download_button("Descargar respuestas en PDF", data=pdf_buffer, file_name=f"{seleccionado}.pdf", mime="application/pdf")
+
 
 def predecir_nuevos_registros(df_input, threshold=0.18):
     modelo = cargar_modelo1()
