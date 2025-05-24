@@ -510,7 +510,7 @@ def mostrar_pacientes():
     pred2 = registro.get("Predicción Óptima 2", "")
 
     # --- Mostrar diagnóstico como tarjeta visual ---
-    def render_bloque_diagnostico(estado, probabilidad):
+    def render_bloque_diagnostico(estado):
         colores = {
             "Sano": ("#4CAF50", "✅"),
             "Prediabético": ("#FFA500", "🟠"),
@@ -522,37 +522,31 @@ def mostrar_pacientes():
         mensaje = f"""
         <div style='background-color:#f8f9fa; padding:20px; border-radius:10px;
                     border-left: 6px solid {color}; margin-bottom:20px;'>
-            <h4 style='color:{color}; margin-top:0;'>{emoji} A partir de sus respuestas y nuestra base de datos, su perfil pertenece a: <b>{estado}</b></h4>
-            <p style='margin-bottom:0;'><b>Probabilidad estimada:</b> {probabilidad:.2%}</p>
+            <h4 style='color:{color}; margin-top:0;'>{emoji} Según sus respuestas, el sistema ha determinado que su perfil corresponde a: <b>{estado}</b></h4>
         </div>
         """
         st.markdown(mensaje, unsafe_allow_html=True)
         if st.session_state.get("voz_activa", False):
-            leer_en_voz(f"A partir de sus respuestas y nuestra base de datos, su perfil pertenece a: {estado}. Con una probabilidad estimada del {probabilidad:.0%}.")
+            leer_en_voz(f"Según sus respuestas, el sistema ha determinado que su perfil corresponde a: {estado}.")
 
     try:
         if str(pred1) == "0":
             estado = "Sano"
-            probabilidad = float(prob1)
             mostrar_relevantes = False
         elif str(pred2) == "0":
             estado = "Prediabético"
-            probabilidad = float(prob2)
             mostrar_relevantes = True
         elif str(pred2) == "1":
             estado = "Diabético"
-            probabilidad = float(prob2)
             mostrar_relevantes = True
         else:
             estado = "Desconocido"
-            probabilidad = 0.0
             mostrar_relevantes = False
     except Exception as e:
         estado = "Desconocido"
-        probabilidad = 0.0
         mostrar_relevantes = False
 
-    render_bloque_diagnostico(estado, probabilidad)
+    render_bloque_diagnostico(estado)
 
     # --- Mapeo profundo ---
     etiquetas = {}
