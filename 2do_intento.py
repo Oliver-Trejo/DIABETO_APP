@@ -576,8 +576,15 @@ def mostrar_pacientes():
             st.markdown("### ⭐ Preguntas más relevantes en este registro")
             texto_relevante = "Preguntas más relevantes: "
             for campo, etiqueta in relevantes:
-                valor = registro.get(campo, "")
-                st.markdown(f"- **{etiqueta}**: {valor}")
+                valor_str = str(registro.get(campo, "")).strip()
+                if campo in valores_a_texto:
+                    texto_valor = valores_a_texto[campo].get(valor_str, valor_str)
+                elif campo == "sexo":
+                    texto_valor = "Hombre" if valor_str in ["1", "Hombre"] else "Mujer" if valor_str in ["2", "Mujer"] else valor_str
+                else:
+                    texto_valor = valor_str
+
+                st.markdown(f"- **{etiqueta}**: {texto_valor}")
                 texto_relevante += f"{etiqueta}, "
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(texto_relevante.strip())
