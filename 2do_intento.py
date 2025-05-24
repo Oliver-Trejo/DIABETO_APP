@@ -314,7 +314,7 @@ def analizar_diagnostico(fila):
         prob2 = safe_float(fila.get("Probabilidad Estimada 2"))
 
         if pred1 == 0:
-            return "Perfil Sano", "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud.", "✅", "#4CAF50", prob1
+            return "Perfil Sano", "¡Buenas noticias! No encontramos señales claras de Diabetes. Aun así, cuida tu salud.", "✅", "#4CAF50", prob1
         elif str(pred2) == "0":
             return "Perfil Prediabético", "Tus respuestas indican señales compatibles con una condición Prediabética. Te recomendamos consultar a un especialista.", "🟠", "#FFA500", prob2
         elif str(pred2) == "1":
@@ -547,8 +547,9 @@ def mostrar_pacientes():
     if mostrar_relevantes:
         relevantes = extraer_preguntas_relevantes(registro, etiquetas)
         if relevantes:
-            st.markdown("### ⭐ Preguntas más relevantes en este registro")
+            texto_html = "<ul style='margin-top: 0;'>"
             texto_relevante = "Preguntas más relevantes: "
+
             for campo, etiqueta in relevantes:
                 valor_str = str(registro.get(campo, "")).strip()
                 if campo in valores_a_texto:
@@ -557,8 +558,20 @@ def mostrar_pacientes():
                     texto_valor = "Hombre" if valor_str == "1" else "Mujer" if valor_str == "2" else valor_str
                 else:
                     texto_valor = valor_str
-                st.markdown(f"- **{etiqueta}**: {texto_valor}")
+
+                texto_html += f"<li><b>{etiqueta}</b>: {texto_valor}</li>"
                 texto_relevante += f"{etiqueta}, "
+
+            texto_html += "</ul>"
+
+            st.markdown(f"""
+                <div style='background-color:#f8f9fa; padding:20px; border-radius:10px;
+                            border-left: 6px solid #007BFF; margin-bottom:20px;'>
+                    <h4 style='color:#007BFF; margin-top:0;'>⭐ Preguntas más relevantes en este registro</h4>
+                    {texto_html}
+                </div>
+            """, unsafe_allow_html=True)
+
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(texto_relevante.strip())
 
