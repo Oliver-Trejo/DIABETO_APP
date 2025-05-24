@@ -12,7 +12,9 @@ from streamlit_geolocation import streamlit_geolocation
 from streamlit_folium import folium_static
 from streamlit.components.v1 import html
 import re
-import os
+import folium
+from streamlit_geolocation import streamlit_geolocation
+from streamlit_folium import folium_static
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
@@ -601,6 +603,19 @@ def mostrar_pacientes():
 
     # Mover aquí las recomendaciones
     mostrar_recomendaciones_pdf(estado)
+
+    location = streamlit_geolocation()
+
+    if location and location.get("latitude") and location.get("longitude"):
+        lat = location["latitude"]
+        lon = location["longitude"]
+        st.success(f"✅ Coordenadas obtenidas:\nLatitud: {lat}\nLongitud: {lon}")
+
+        mapa = folium.Map(location=[lat, lon], zoom_start=16)
+        folium.Marker([lat, lon], tooltip="📍 Aquí estás").add_to(mapa)
+        folium_static(mapa)
+    else:
+        st.info("Presiona el botón para obtener tu ubicación.")
 
     st.markdown("### ✍🏽 Respuestas registradas")
     for campo, valor in registro.items():
