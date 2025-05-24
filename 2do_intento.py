@@ -300,6 +300,31 @@ def guardar_respuesta_paciente(fila_dict):
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
     sheet.append_row(nueva_fila)
 
+def analizar_diagnostico(fila):
+    def safe_float(val, default=0.0):
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
+
+    try:
+        pred1 = int(fila.get("Predicción Óptima 1", 0))
+        prob1 = safe_float(fila.get("Probabilidad Estimada 1"))
+        pred2 = fila.get("Predicción Óptima 2", "")
+        prob2 = safe_float(fila.get("Probabilidad Estimada 2"))
+
+        if pred1 == 0:
+            return "Perfil Sano", "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud.", "✅", "#4CAF50", prob1
+        elif str(pred2) == "0":
+            return "Perfil Prediabético", "Tus respuestas indican señales compatibles con una condición prediabética. Te recomendamos consultar a un especialista.", "🟠", "#FFA500", prob2
+        elif str(pred2) == "1":
+            return "Perfil Diabético", "Tus respuestas indican señales compatibles con diabetes tipo 2. Es importante que acudas a un centro de salud lo antes posible.", "🚨", "#FF0000", prob2
+        else:
+            return "Diagnóstico no disponible", "No se pudo determinar el diagnóstico con la información proporcionada.", "❓", "#999999", 0.0
+    except Exception as e:
+        return "Diagnóstico no disponible", f"Error al procesar los resultados: {e}", "❗", "#999999", 0.0
+
+
 def extraer_preguntas_relevantes(registro, etiquetas):
     """
     Devuelve hasta 5 preguntas consideradas más relevantes para un registro.
@@ -324,50 +349,7 @@ def extraer_preguntas_relevantes(registro, etiquetas):
     return relevantes[:5]
 
 def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
-    def safe_float(val, default=0.0):
-        try:
-            return float(val)
-        except (ValueError, TypeError):
-            return default
-
-    # Determinar diagnóstico
-    try:
-        pred1 = int(fila.get("Predicción Óptima 1", 0))
-        prob1 = safe_float(fila.get("Probabilidad Estimada 1"))
-        pred2 = fila.get("Predicción Óptima 2", "")
-        prob2 = safe_float(fila.get("Probabilidad Estimada 2"))
-
-        if pred1 == 0:
-            diagnostico = "Perfil Sano"
-            probabilidad = prob1
-            color = "#4CAF50"
-            emoji = "✅"
-            mensaje = "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
-        elif str(pred2) == "0":
-            diagnostico = "Perfil Prediabético"
-            probabilidad = prob2
-            color = "#FFA500"
-            emoji = "🟠"
-            mensaje = "Tus respuestas indican señales compatibles con una condición prediabética. Te recomendamos consultar a un especialista."
-        elif str(pred2) == "1":
-            diagnostico = "Perfil Diabético"
-            probabilidad = prob2
-            color = "#FF0000"
-            emoji = "🚨"
-            mensaje = "Tus respuestas indican señales compatibles con diabetes tipo 2. Es importante que acudas a un centro de salud lo antes posible."
-        else:
-            diagnostico = "Diagnóstico no disponible"
-            probabilidad = 0
-            color = "#999999"
-            emoji = "❓"
-            mensaje = "No se pudo determinar el diagnóstico con la información proporcionada."
-
-    except Exception as e:
-        diagnostico = "Diagnóstico no disponible"
-        probabilidad = 0
-        color = "#999999"
-        emoji = "❗"
-        mensaje = f"Error al procesar los resultados: {e}"
+    diagnostico, mensaje, emoji, color, probabilidad = analizar_diagnostico(fila)
 
     # Mostrar el bloque visual
     st.markdown(f"""
@@ -375,16 +357,15 @@ def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
                     border-left: 5px solid {color}; margin-bottom:20px;'>
             <h3 style='color:{color}; margin-top:0;'>{emoji} Diagnóstico: {diagnostico}</h3>
             <p style='margin-bottom:0;'>{mensaje}</p>
-            <p style='font-weight:bold;'>Probabilidad estimada: {probabilidad:.2%}</p>
         </div>
     """, unsafe_allow_html=True)
 
-    texto_a_leer = f"{mensaje} Tu probabilidad estimada es del {probabilidad:.0%}. "
+    texto_a_leer = mensaje
 
     # Variables importantes
     if variables_importantes:
         st.markdown("#### 🔍 Factores más relevantes en esta evaluación:")
-        texto_a_leer += "Factores relevantes considerados fueron: "
+        texto_a_leer += " Factores relevantes considerados fueron: "
         for var, val in variables_importantes:
             st.markdown(f"- **{var}**: {val}")
             texto_a_leer += f"{var}, "
@@ -394,6 +375,7 @@ def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
         leer_en_voz(texto_a_leer.strip())
 
     return diagnostico
+
 
 def ejecutar_prediccion():
     sheet = conectar_google_sheet(key=st.secrets["google_sheets"]["pacientes_key"])
@@ -504,49 +486,21 @@ def mostrar_pacientes():
 
     registro = df[df["ID"] == seleccionado].iloc[0]
     st.subheader(f"🧾 {seleccionado}")
-    prob1 = registro.get("Probabilidad Estimada 1", "")
-    pred1 = registro.get("Predicción Óptima 1", "")
-    prob2 = registro.get("Probabilidad Estimada 2", "")
-    pred2 = registro.get("Predicción Óptima 2", "")
 
-    # --- Mostrar diagnóstico como tarjeta visual ---
-    def render_bloque_diagnostico(estado):
-        colores = {
-            "Perfil Sano": ("#4CAF50", "✅"),
-            "Perfil Prediabético": ("#FFA500", "🟠"),
-            "Perfil Diabético": ("#FF0000", "🚨"),
-            "Desconocido": ("#999999", "❓")
-        }
-        color, emoji = colores.get(estado, ("#999999", "❓"))
+    # --- Diagnóstico reutilizando la lógica centralizada ---
+    diagnostico, mensaje, emoji, color, _ = analizar_diagnostico(registro)
+    estado = diagnostico.replace("Perfil ", "") if "Perfil" in diagnostico else diagnostico
+    mostrar_relevantes = estado in ["Prediabético", "Diabético"]
 
-        mensaje = f"""
+    st.markdown(f"""
         <div style='background-color:#f8f9fa; padding:20px; border-radius:10px;
                     border-left: 6px solid {color}; margin-bottom:20px;'>
-            <h4 style='color:{color}; margin-top:0;'>{emoji} Según sus respuestas, el sistema ha determinado que su perfil corresponde a: <b>{estado}</b></h4>
+            <h4 style='color:{color}; margin-top:0;'>{emoji} {mensaje}</h4>
         </div>
-        """
-        st.markdown(mensaje, unsafe_allow_html=True)
-        if st.session_state.get("voz_activa", False):
-            leer_en_voz(f"Según sus respuestas, el sistema ha determinado que su perfil corresponde a: {estado}.")
+    """, unsafe_allow_html=True)
 
-    try:
-        if str(pred1) == "0":
-            estado = "Perfil Sano"
-            mostrar_relevantes = False
-        elif str(pred2) == "0":
-            estado = "Perfil Prediabético"
-            mostrar_relevantes = True
-        elif str(pred2) == "1":
-            estado = "Perfil Diabético"
-            mostrar_relevantes = True
-        else:
-            estado = "Desconocido"
-            mostrar_relevantes = False
-    except Exception as e:
-        estado = "Desconocido"
-        mostrar_relevantes = False
-
-    render_bloque_diagnostico(estado)
+    if st.session_state.get("voz_activa", False):
+        leer_en_voz(mensaje)
 
     # --- Mapeo profundo ---
     etiquetas = {}
