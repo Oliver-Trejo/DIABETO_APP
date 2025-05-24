@@ -468,8 +468,12 @@ def nuevo_registro():
 
 def mostrar_pacientes():
     import os
+    import folium
+    from streamlit_folium import folium_static
+    from streamlit_geolocation import streamlit_geolocation
 
     def mostrar_recomendaciones_pdf(estado: str):
+        carpeta = "archivos_recomendaciones"
         temas = ["Ejercicio", "Habitos", "Nutricion"]
 
         estado_archivo = {
@@ -481,7 +485,7 @@ def mostrar_pacientes():
         st.markdown("### 📥 Recomendaciones personalizadas")
         for tema in temas:
             nombre_archivo = f"{tema} ({estado_archivo}).pdf"
-            ruta = os.path.join(nombre_archivo)
+            ruta = os.path.join(carpeta, nombre_archivo)
 
             try:
                 with open(ruta, "rb") as f:
@@ -601,9 +605,11 @@ def mostrar_pacientes():
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(texto_relevante.strip())
 
-    # Mover aquí las recomendaciones
+    # Mostrar recomendaciones PDF
     mostrar_recomendaciones_pdf(estado)
 
+    # Mostrar mapa con geolocalización
+    st.markdown("### 🗺️ Ubicación actual del usuario")
     location = streamlit_geolocation()
 
     if location and location.get("latitude") and location.get("longitude"):
@@ -617,6 +623,7 @@ def mostrar_pacientes():
     else:
         st.info("Presiona el botón para obtener tu ubicación.")
 
+    # Respuestas completas
     st.markdown("### ✍🏽 Respuestas registradas")
     for campo, valor in registro.items():
         if campo in ["Registrado por", "ID"] or pd.isna(valor):
@@ -634,6 +641,7 @@ def mostrar_pacientes():
             texto_valor = valor_str
 
         st.markdown(f"**{label}:** {texto_valor}")
+
 
 def main():
     if "logged_in" not in st.session_state:
