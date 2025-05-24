@@ -531,13 +531,13 @@ def mostrar_pacientes():
 
     try:
         if str(pred1) == "0":
-            estado = "Sano"
+            estado = "Perfil Sano"
             mostrar_relevantes = False
         elif str(pred2) == "0":
-            estado = "Prediabético"
+            estado = "Perfil Prediabético"
             mostrar_relevantes = True
         elif str(pred2) == "1":
-            estado = "Diabético"
+            estado = "Perfil Diabético"
             mostrar_relevantes = True
         else:
             estado = "Desconocido"
