@@ -611,6 +611,17 @@ def mostrar_pacientes():
     st.markdown("### 🗺️ Ubicación actual del usuario")
     location = streamlit_geolocation()
 
+    if location and location.get("latitude") and location.get("longitude"):
+        lat = location["latitude"]
+        lon = location["longitude"]
+        st.success(f"✅ Ubicación mostrada a continuación")
+
+        mapa = folium.Map(location=[lat, lon], zoom_start=16)
+        folium.Marker([lat, lon], tooltip="📍 Aquí estás").add_to(mapa)
+        folium_static(mapa)
+    else:
+        st.info("Presiona el botón para obtener tu ubicación.")
+
     # Respuestas completas
     st.markdown("### ✍🏽 Respuestas registradas")
     for campo, valor in registro.items():
