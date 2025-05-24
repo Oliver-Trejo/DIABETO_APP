@@ -12,6 +12,7 @@ from streamlit_geolocation import streamlit_geolocation
 from streamlit_folium import folium_static
 from streamlit.components.v1 import html
 import re
+import os
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
@@ -464,6 +465,35 @@ def nuevo_registro():
             st.rerun()
 
 def mostrar_pacientes():
+    import os
+
+    def mostrar_recomendaciones_pdf(estado: str):
+        carpeta = "archivos_recomendaciones"
+        temas = ["Ejercicio", "Habitos", "Nutricion"]
+
+        # Mapeo del estado al nombre de archivo
+        estado_archivo = {
+            "Sano": "Sanos",
+            "Prediabético": "Prediabetes",
+            "Diabético": "Diabetes"
+        }.get(estado, "Sanos")
+
+        st.markdown("### 📥 Recomendaciones personalizadas")
+        for tema in temas:
+            nombre_archivo = f"{tema} ({estado_archivo}).pdf"
+            ruta = os.path.join(carpeta, nombre_archivo)
+
+            try:
+                with open(ruta, "rb") as f:
+                    st.download_button(
+                        label=f"Descargar Recomendaciones de {tema}",
+                        data=f,
+                        file_name=nombre_archivo,
+                        mime="application/pdf"
+                    )
+            except FileNotFoundError:
+                st.warning(f"Archivo no disponible: {nombre_archivo}")
+
     st.title("📋 Participante")
 
     if st.session_state.get("voz_activa", False):
@@ -487,7 +517,7 @@ def mostrar_pacientes():
     registro = df[df["ID"] == seleccionado].iloc[0]
     st.subheader(f"🧾 {seleccionado}")
 
-    # --- Diagnóstico reutilizando la lógica centralizada ---
+    # Diagnóstico unificado
     diagnostico, mensaje, emoji, color, _ = analizar_diagnostico(registro)
     estado = diagnostico.replace("Perfil ", "") if "Perfil" in diagnostico else diagnostico
     mostrar_relevantes = estado in ["Prediabético", "Diabético"]
@@ -502,7 +532,9 @@ def mostrar_pacientes():
     if st.session_state.get("voz_activa", False):
         leer_en_voz(mensaje)
 
-    # --- Mapeo profundo ---
+    mostrar_recomendaciones_pdf(estado)
+
+    # Mapeo preguntas
     etiquetas = {}
     valores_a_texto = {}
 
@@ -529,7 +561,6 @@ def mostrar_pacientes():
     except Exception as e:
         st.warning(f"No se pudo cargar etiquetas ni valores desde el JSON: {e}")
 
-    # --- Preguntas más relevantes ---
     def extraer_preguntas_relevantes(registro, etiquetas):
         relevantes = []
         for campo, valor in registro.items():
@@ -558,7 +589,6 @@ def mostrar_pacientes():
                     texto_valor = "Hombre" if valor_str == "1" else "Mujer" if valor_str == "2" else valor_str
                 else:
                     texto_valor = valor_str
-
                 texto_html += f"<li><b>{etiqueta}</b>: {texto_valor}</li>"
                 texto_relevante += f"{etiqueta}, "
 
@@ -575,7 +605,6 @@ def mostrar_pacientes():
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(texto_relevante.strip())
 
-    # --- Respuestas completas ---
     st.markdown("### ✍🏽 Respuestas registradas")
     for campo, valor in registro.items():
         if campo in ["Registrado por", "ID"] or pd.isna(valor):
