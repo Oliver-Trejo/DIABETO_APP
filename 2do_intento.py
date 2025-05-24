@@ -527,19 +527,6 @@ def mostrar_pacientes():
         mostrar_relevantes = False
 
     st.markdown(f"### 🩺 Resultado del diagnóstico: {diagnostico}")
-    if mostrar_relevantes:
-        relevantes = extraer_preguntas_relevantes(registro, etiquetas)
-        if relevantes:
-            st.markdown("### ⭐ Preguntas más relevantes en este registro")
-            texto_relevante = "Preguntas más relevantes: "
-            for campo, etiqueta in relevantes:
-                valor = registro.get(campo, "")
-                st.markdown(f"- **{etiqueta}**: {valor}")
-                texto_relevante += f"{etiqueta}, "
-
-            if st.session_state.get("voz_activa", False):
-                leer_en_voz(texto_relevante.strip())
-    st.markdown("### ✍🏽 Respuestas registradas")
 
     # --- Mapeo profundo ---
     etiquetas = {}
@@ -583,7 +570,20 @@ def mostrar_pacientes():
                 relevantes.append((campo, etiquetas.get(campo, campo)))
         return relevantes[:5]
 
-    # Mostrar respuestas traducidas
+    if mostrar_relevantes:
+        relevantes = extraer_preguntas_relevantes(registro, etiquetas)
+        if relevantes:
+            st.markdown("### ⭐ Preguntas más relevantes en este registro")
+            texto_relevante = "Preguntas más relevantes: "
+            for campo, etiqueta in relevantes:
+                valor = registro.get(campo, "")
+                st.markdown(f"- **{etiqueta}**: {valor}")
+                texto_relevante += f"{etiqueta}, "
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz(texto_relevante.strip())
+
+    # --- Respuestas completas ---
+    st.markdown("### ✍🏽 Respuestas registradas")
     for campo, valor in registro.items():
         if campo in ["Registrado por", "ID"] or pd.isna(valor):
             continue
