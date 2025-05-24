@@ -510,23 +510,14 @@ def mostrar_pacientes():
     pred2 = registro.get("Predicción Óptima 2", "")
 
     # --- Mostrar diagnóstico como tarjeta visual ---
-    def render_bloque_diagnostico(diagnostico, probabilidad):
-        if "Sano" in diagnostico:
-            color = "#4CAF50"
-            emoji = "✅"
-            estado = "Sano"
-        elif "Prediabético" in diagnostico:
-            color = "#FFA500"
-            emoji = "🟠"
-            estado = "Prediabético"
-        elif "Diabético" in diagnostico:
-            color = "#FF0000"
-            emoji = "🚨"
-            estado = "Diabético"
-        else:
-            color = "#999999"
-            emoji = "❓"
-            estado = "Desconocido"
+    def render_bloque_diagnostico(estado, probabilidad):
+        colores = {
+            "Sano": ("#4CAF50", "✅"),
+            "Prediabético": ("#FFA500", "🟠"),
+            "Diabético": ("#FF0000", "🚨"),
+            "Desconocido": ("#999999", "❓")
+        }
+        color, emoji = colores.get(estado, ("#999999", "❓"))
 
         mensaje = f"""
         <div style='background-color:#f8f9fa; padding:20px; border-radius:10px;
@@ -541,27 +532,27 @@ def mostrar_pacientes():
 
     try:
         if str(pred1) == "0":
-            diagnostico = "Sano"
+            estado = "Sano"
             probabilidad = float(prob1)
             mostrar_relevantes = False
         elif str(pred2) == "0":
-            diagnostico = "Prediabético"
+            estado = "Prediabético"
             probabilidad = float(prob2)
             mostrar_relevantes = True
         elif str(pred2) == "1":
-            diagnostico = "Diabético"
+            estado = "Diabético"
             probabilidad = float(prob2)
             mostrar_relevantes = True
         else:
-            diagnostico = "Diagnóstico no disponible"
+            estado = "Desconocido"
             probabilidad = 0.0
             mostrar_relevantes = False
     except Exception as e:
-        diagnostico = "Diagnóstico no disponible"
+        estado = "Desconocido"
         probabilidad = 0.0
         mostrar_relevantes = False
 
-    render_bloque_diagnostico(diagnostico, probabilidad)
+    render_bloque_diagnostico(estado, probabilidad)
 
     # --- Mapeo profundo ---
     etiquetas = {}
@@ -615,7 +606,7 @@ def mostrar_pacientes():
                 if campo in valores_a_texto:
                     texto_valor = valores_a_texto[campo].get(valor_str, valor_str)
                 elif campo == "sexo":
-                    texto_valor = "Hombre" if valor_str in ["1", "Hombre"] else "Mujer" if valor_str in ["2", "Mujer"] else valor_str
+                    texto_valor = "Hombre" if valor_str == "1" else "Mujer" if valor_str == "2" else valor_str
                 else:
                     texto_valor = valor_str
                 st.markdown(f"- **{etiqueta}**: {texto_valor}")
@@ -634,14 +625,13 @@ def mostrar_pacientes():
         if campo in valores_a_texto:
             texto_valor = valores_a_texto[campo].get(valor_str, valor_str)
         elif campo == "sexo":
-            texto_valor = "Hombre" if valor_str in ["1", "Hombre"] else "Mujer" if valor_str in ["2", "Mujer"] else valor_str
+            texto_valor = "Hombre" if valor_str == "1" else "Mujer" if valor_str == "2" else valor_str
         elif campo.startswith("Predicción") or campo.startswith("Probabilidad"):
             continue
         else:
             texto_valor = valor_str
 
         st.markdown(f"**{label}:** {texto_valor}")
-
 
 def main():
     if "logged_in" not in st.session_state:
