@@ -512,9 +512,9 @@ def mostrar_pacientes():
     # --- Mostrar diagnóstico como tarjeta visual ---
     def render_bloque_diagnostico(estado):
         colores = {
-            "Sano": ("#4CAF50", "✅"),
-            "Prediabético": ("#FFA500", "🟠"),
-            "Diabético": ("#FF0000", "🚨"),
+            "Perfil Sano": ("#4CAF50", "✅"),
+            "Perfil Prediabético": ("#FFA500", "🟠"),
+            "Perfil Diabético": ("#FF0000", "🚨"),
             "Desconocido": ("#999999", "❓")
         }
         color, emoji = colores.get(estado, ("#999999", "❓"))
