@@ -471,7 +471,6 @@ def mostrar_pacientes():
         carpeta = "archivos_recomendaciones"
         temas = ["Ejercicio", "Habitos", "Nutricion"]
 
-        # Mapeo del estado al nombre de archivo
         estado_archivo = {
             "Sano": "Sanos",
             "Prediabético": "Prediabetes",
@@ -517,7 +516,7 @@ def mostrar_pacientes():
     registro = df[df["ID"] == seleccionado].iloc[0]
     st.subheader(f"🧾 {seleccionado}")
 
-    # Diagnóstico unificado
+    # Diagnóstico
     diagnostico, mensaje, emoji, color, _ = analizar_diagnostico(registro)
     estado = diagnostico.replace("Perfil ", "") if "Perfil" in diagnostico else diagnostico
     mostrar_relevantes = estado in ["Prediabético", "Diabético"]
@@ -534,7 +533,6 @@ def mostrar_pacientes():
 
     mostrar_recomendaciones_pdf(estado)
 
-    # Mapeo preguntas
     etiquetas = {}
     valores_a_texto = {}
 
