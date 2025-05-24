@@ -338,19 +338,19 @@ def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
         prob2 = safe_float(fila.get("Probabilidad Estimada 2"))
 
         if pred1 == 0:
-            diagnostico = "Sano"
+            diagnostico = "Perfil Sano"
             probabilidad = prob1
             color = "#4CAF50"
             emoji = "✅"
             mensaje = "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud."
         elif str(pred2) == "0":
-            diagnostico = "Prediabético"
+            diagnostico = "Perfil Prediabético"
             probabilidad = prob2
             color = "#FFA500"
             emoji = "🟠"
             mensaje = "Tus respuestas indican señales compatibles con una condición prediabética. Te recomendamos consultar a un especialista."
         elif str(pred2) == "1":
-            diagnostico = "Diabético"
+            diagnostico = "Perfil Diabético"
             probabilidad = prob2
             color = "#FF0000"
             emoji = "🚨"
