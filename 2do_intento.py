@@ -473,7 +473,6 @@ def mostrar_pacientes():
     from streamlit_geolocation import streamlit_geolocation
 
     def mostrar_recomendaciones_pdf(estado: str):
-        carpeta = "archivos_recomendaciones"
         temas = ["Ejercicio", "Habitos", "Nutricion"]
 
         estado_archivo = {
@@ -485,7 +484,7 @@ def mostrar_pacientes():
         st.markdown("### 📥 Recomendaciones personalizadas")
         for tema in temas:
             nombre_archivo = f"{tema} ({estado_archivo}).pdf"
-            ruta = os.path.join(carpeta, nombre_archivo)
+            ruta = os.path.join(nombre_archivo)
 
             try:
                 with open(ruta, "rb") as f:
@@ -615,7 +614,7 @@ def mostrar_pacientes():
     if location and location.get("latitude") and location.get("longitude"):
         lat = location["latitude"]
         lon = location["longitude"]
-        st.success(f"✅ Coordenadas obtenidas:\nLatitud: {lat}\nLongitud: {lon}")
+        st.success(f"✅ Ubicación mostrada a continuación")
 
         mapa = folium.Map(location=[lat, lon], zoom_start=16)
         folium.Marker([lat, lon], tooltip="📍 Aquí estás").add_to(mapa)
