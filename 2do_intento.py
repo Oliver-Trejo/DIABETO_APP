@@ -300,6 +300,29 @@ def guardar_respuesta_paciente(fila_dict):
     nueva_fila = [fila_dict.get(col, "") for col in encabezados]
     sheet.append_row(nueva_fila)
 
+def extraer_preguntas_relevantes(registro, etiquetas):
+    """
+    Devuelve hasta 5 preguntas consideradas más relevantes para un registro.
+
+    Criterios:
+    - Respuestas binarias con valor 1
+    - Campos de texto no vacíos (y no puramente numéricos)
+    """
+    relevantes = []
+
+    for campo, valor in registro.items():
+        if campo in ["Registrado por", "ID"]:
+            continue
+        if pd.isna(valor):
+            continue
+        valor_str = str(valor).strip()
+        if valor_str == "1":
+            relevantes.append((campo, etiquetas.get(campo, campo)))
+        elif not valor_str.isdigit() and len(valor_str) > 1:
+            relevantes.append((campo, etiquetas.get(campo, campo)))
+
+    return relevantes[:5]
+
 def mostrar_resultado_prediccion(fila: dict, variables_importantes=None):
     def safe_float(val, default=0.0):
         try:
@@ -489,14 +512,19 @@ def mostrar_pacientes():
     try:
         if str(pred1) == "0":
             diagnostico = f"Sano (Modelo 1 - {float(prob1):.2%})"
+            mostrar_relevantes = False
         elif str(pred2) == "0":
             diagnostico = f"Prediabético (Modelo 2 - {float(prob2):.2%})"
+            mostrar_relevantes = True
         elif str(pred2) == "1":
             diagnostico = f"Diabético (Modelo 2 - {float(prob2):.2%})"
+            mostrar_relevantes = True
         else:
             diagnostico = "Diagnóstico no disponible"
+            mostrar_relevantes = False
     except Exception as e:
         diagnostico = f"Error al interpretar resultados: {e}"
+        mostrar_relevantes = False
 
     st.markdown(f"### 🩺 Resultado del diagnóstico: {diagnostico}")
     st.markdown("### ✍🏽 Respuestas registradas")
@@ -518,7 +546,6 @@ def mostrar_pacientes():
                     if isinstance(item, dict) and "codigo" in item:
                         codigo = item["codigo"]
                         etiquetas[codigo] = item.get("label", codigo)
-                        # Mapeo de valores
                         if "valores" in item and "opciones" in item:
                             valores_a_texto[codigo] = {
                                 str(val): texto for val, texto in zip(item["valores"], item["opciones"])
@@ -529,24 +556,49 @@ def mostrar_pacientes():
     except Exception as e:
         st.warning(f"No se pudo cargar etiquetas ni valores desde el JSON: {e}")
 
+    # --- Preguntas más relevantes ---
+    def extraer_preguntas_relevantes(registro, etiquetas):
+        relevantes = []
+        for campo, valor in registro.items():
+            if campo in ["Registrado por", "ID"]:
+                continue
+            if pd.isna(valor):
+                continue
+            valor_str = str(valor).strip()
+            if valor_str == "1":
+                relevantes.append((campo, etiquetas.get(campo, campo)))
+            elif not valor_str.isdigit() and len(valor_str) > 1:
+                relevantes.append((campo, etiquetas.get(campo, campo)))
+        return relevantes[:5]
+
+    if mostrar_relevantes:
+        relevantes = extraer_preguntas_relevantes(registro, etiquetas)
+        if relevantes:
+            st.markdown("### ⭐ Preguntas más relevantes en este registro")
+            texto_relevante = "Preguntas más relevantes: "
+            for campo, etiqueta in relevantes:
+                valor = registro.get(campo, "")
+                st.markdown(f"- **{etiqueta}**: {valor}")
+                texto_relevante += f"{etiqueta}, "
+
+            if st.session_state.get("voz_activa", False):
+                leer_en_voz(texto_relevante.strip())
+
     # Mostrar respuestas traducidas
     for campo, valor in registro.items():
         if campo in ["Registrado por", "ID"] or pd.isna(valor):
             continue
 
         label = etiquetas.get(campo, campo)
-        valor_str = str(valor).strip()  # Normaliza valor
+        valor_str = str(valor).strip()
         texto_valor = valor_str
 
-        # Traducir según mapeo del JSON si existe
         if campo in valores_a_texto:
             texto_valor = valores_a_texto[campo].get(valor_str, valor_str)
-
         elif campo == "sexo":
             texto_valor = "Hombre" if valor_str in ["1", "Hombre"] else "Mujer" if valor_str in ["2", "Mujer"] else valor_str
-
         elif campo.startswith("Predicción") or campo.startswith("Probabilidad"):
-            continue  # Estos ya fueron mostrados en el resumen
+            continue
 
         st.markdown(f"**{label}:** {texto_valor}")
 
