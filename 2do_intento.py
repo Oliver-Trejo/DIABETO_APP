@@ -468,6 +468,7 @@ def mostrar_pacientes():
     import os
 
     def mostrar_recomendaciones_pdf(estado: str):
+        carpeta = "archivos_recomendaciones"
         temas = ["Ejercicio", "Habitos", "Nutricion"]
 
         estado_archivo = {
@@ -479,7 +480,7 @@ def mostrar_pacientes():
         st.markdown("### 📥 Recomendaciones personalizadas")
         for tema in temas:
             nombre_archivo = f"{tema} ({estado_archivo}).pdf"
-            ruta = os.path.join(nombre_archivo)
+            ruta = os.path.join(carpeta, nombre_archivo)
 
             try:
                 with open(ruta, "rb") as f:
@@ -515,7 +516,6 @@ def mostrar_pacientes():
     registro = df[df["ID"] == seleccionado].iloc[0]
     st.subheader(f"🧾 {seleccionado}")
 
-    # Diagnóstico
     diagnostico, mensaje, emoji, color, _ = analizar_diagnostico(registro)
     estado = diagnostico.replace("Perfil ", "") if "Perfil" in diagnostico else diagnostico
     mostrar_relevantes = estado in ["Prediabético", "Diabético"]
@@ -529,8 +529,6 @@ def mostrar_pacientes():
 
     if st.session_state.get("voz_activa", False):
         leer_en_voz(mensaje)
-
-    mostrar_recomendaciones_pdf(estado)
 
     etiquetas = {}
     valores_a_texto = {}
@@ -601,6 +599,9 @@ def mostrar_pacientes():
 
             if st.session_state.get("voz_activa", False):
                 leer_en_voz(texto_relevante.strip())
+
+    # Mover aquí las recomendaciones
+    mostrar_recomendaciones_pdf(estado)
 
     st.markdown("### ✍🏽 Respuestas registradas")
     for campo, valor in registro.items():
