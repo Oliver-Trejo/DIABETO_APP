@@ -316,9 +316,9 @@ def analizar_diagnostico(fila):
         if pred1 == 0:
             return "Perfil Sano", "¡Buenas noticias! No encontramos señales claras de diabetes. Aun así, cuida tu salud.", "✅", "#4CAF50", prob1
         elif str(pred2) == "0":
-            return "Perfil Prediabético", "Tus respuestas indican señales compatibles con una condición prediabética. Te recomendamos consultar a un especialista.", "🟠", "#FFA500", prob2
+            return "Perfil Prediabético", "Tus respuestas indican señales compatibles con una condición Prediabética. Te recomendamos consultar a un especialista.", "🟠", "#FFA500", prob2
         elif str(pred2) == "1":
-            return "Perfil Diabético", "Tus respuestas indican señales compatibles con diabetes tipo 2. Es importante que acudas a un centro de salud lo antes posible.", "🚨", "#FF0000", prob2
+            return "Perfil Diabético", "Tus respuestas indican señales compatibles con Diabetes Tipo 2. Es importante que acudas a un centro de salud lo antes posible.", "🚨", "#FF0000", prob2
         else:
             return "Diagnóstico no disponible", "No se pudo determinar el diagnóstico con la información proporcionada.", "❓", "#999999", 0.0
     except Exception as e:
