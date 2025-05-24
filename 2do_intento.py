@@ -468,7 +468,6 @@ def mostrar_pacientes():
     import os
 
     def mostrar_recomendaciones_pdf(estado: str):
-        carpeta = "archivos_recomendaciones"
         temas = ["Ejercicio", "Habitos", "Nutricion"]
 
         estado_archivo = {
@@ -480,7 +479,7 @@ def mostrar_pacientes():
         st.markdown("### 📥 Recomendaciones personalizadas")
         for tema in temas:
             nombre_archivo = f"{tema} ({estado_archivo}).pdf"
-            ruta = os.path.join(carpeta, nombre_archivo)
+            ruta = os.path.join(nombre_archivo)
 
             try:
                 with open(ruta, "rb") as f:
