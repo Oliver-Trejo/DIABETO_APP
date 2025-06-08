@@ -658,5 +658,20 @@ def main():
     else:
         login_page()
 
+    # Mostrar versión en esquina inferior izquierda
+    st.markdown("""
+        <style>
+            .version {
+                position: fixed;
+                left: 10px;
+                bottom: 5px;
+                font-size: 12px;
+                color: gray;
+            }
+        </style>
+        <div class='version'>v 1.0</div>
+    """, unsafe_allow_html=True)
+
+
 main()
 
