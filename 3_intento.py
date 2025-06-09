@@ -15,7 +15,7 @@ import re
 import folium
 from streamlit_geolocation import streamlit_geolocation
 from streamlit_folium import folium_static
-from sklearn.utils._tags import _safe_tags
+
 
 # --- CONFIGURACIONES GLOBALES ---
 st.set_page_config(page_title="DIABETO", page_icon="🏥", layout="wide")
