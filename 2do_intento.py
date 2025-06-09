@@ -131,7 +131,7 @@ def mostrar_contacto():
     st.markdown("¿Tienes alguna sugerencia, duda o comentario sobre DIABETO? Puedes compartirlo con nosotros directamente aquí:")
 
     st.components.v1.iframe(
-        src="https://docs.google.com/forms/d/e/1PNPsQeLmnWGgCrEl1NIXifGzn_-IO6fnFh8PNef9ECM/viewform?embedded=true",
+        src="https://docs.google.com/forms/d/e/1FAIpQLSe28B7m5Cn4vQXkwxFtvq3baXbbrh0YmDPA9QTBwyfrhW3uKg/viewform?embedded=true",
         height=650
     )
 
