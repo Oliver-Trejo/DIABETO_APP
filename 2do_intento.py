@@ -132,7 +132,7 @@ def mostrar_contacto():
 
     st.components.v1.iframe(
         src="https://docs.google.com/forms/d/e/1FAIpQLSe28B7m5Cn4vQXkwxFtvq3baXbbrh0YmDPA9QTBwyfrhW3uKg/viewform?embedded=true",
-        height=2000
+        height=5000
     )
 
 def hash_password(password):
