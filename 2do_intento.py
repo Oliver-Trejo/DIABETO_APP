@@ -659,7 +659,7 @@ def main():
         st.sidebar.markdown("## Navegación")
         opcion = st.sidebar.radio("", ["Mi Cuenta", "Nuevo Registro", "Participante", "Contacto"])
         st.sidebar.button("🔴 Cerrar sesión", on_click=lambda: st.session_state.update({"logged_in": False, "usuario": None}))
-        
+
         if opcion == "Mi Cuenta":
             mostrar_perfil()
         elif opcion == "Nuevo Registro":
@@ -671,7 +671,7 @@ def main():
     else:
         login_page()
 
-    # Mostrar versión en esquina inferior izquierda
+    # Mostrar versión
     st.markdown("""
         <style>
             .version {
@@ -684,6 +684,7 @@ def main():
         </style>
         <div class='version'>v 1.0</div>
     """, unsafe_allow_html=True)
+
 
 
 
