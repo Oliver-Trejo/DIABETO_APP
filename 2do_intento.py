@@ -125,6 +125,16 @@ def generar_pdf(respuestas_completas, variables_relevantes):
 def obtener_hoja_usuarios():
     return conectar_google_sheet(key=st.secrets["google_sheets"]["usuarios_key"])
 
+def mostrar_contacto():
+    st.title("📬 Contáctanos")
+
+    st.markdown("¿Tienes alguna sugerencia, duda o comentario sobre DIABETO? Puedes compartirlo con nosotros directamente aquí:")
+
+    st.components.v1.iframe(
+        src="https://docs.google.com/forms/d/e/1PNPsQeLmnWGgCrEl1NIXifGzn_-IO6fnFh8PNef9ECM/viewform?embedded=true",
+        height=650
+    )
+
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
@@ -647,14 +657,17 @@ def main():
         st.session_state["logged_in"] = False
     if st.session_state["logged_in"]:
         st.sidebar.markdown("## Navegación")
-        opcion = st.sidebar.radio("", ["Mi Cuenta", "Nuevo Registro", "Participante"])
+        opcion = st.sidebar.radio("", ["Mi Cuenta", "Nuevo Registro", "Participante", "Contacto"])
         st.sidebar.button("🔴 Cerrar sesión", on_click=lambda: st.session_state.update({"logged_in": False, "usuario": None}))
+        
         if opcion == "Mi Cuenta":
             mostrar_perfil()
         elif opcion == "Nuevo Registro":
             nuevo_registro()
         elif opcion == "Participante":
             mostrar_pacientes()
+        elif opcion == "Contacto":
+            mostrar_contacto()
     else:
         login_page()
 
@@ -671,6 +684,7 @@ def main():
         </style>
         <div class='version'>v 1.0</div>
     """, unsafe_allow_html=True)
+
 
 
 main()
